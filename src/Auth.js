@@ -141,10 +141,40 @@ const Auth = ({ onAuth }) => {
         />
         {emailError && <span id="email-error" style={{color: "#e74c3c", fontSize: 14}}>{emailError}</span>}
 
-        {/* Custom Captcha */}
+        {/* Custom Captcha as Canvas Image */}
         <label htmlFor="captcha" style={{fontWeight: 500, marginTop: 8}}>Captcha</label>
         <div style={{display: "flex", alignItems: "center", gap: 12, marginBottom: 4}}>
-          <span style={{fontFamily: 'Fira Mono, monospace', fontSize: 18, background: '#eef', padding: '6px 16px', borderRadius: 8, letterSpacing: 2}}>{captcha}</span>
+          <canvas
+            ref={el => {
+              if (!el) return;
+              const ctx = el.getContext('2d');
+              ctx.clearRect(0, 0, 180, 40);
+              ctx.fillStyle = '#eef';
+              ctx.fillRect(0, 0, 180, 40);
+              ctx.font = 'bold 24px Fira Mono, monospace';
+              ctx.fillStyle = '#2c3e50';
+              // Add some random rotation and position for each char
+              for (let i = 0; i < captcha.length; i++) {
+                const angle = (Math.random() - 0.5) * 0.4;
+                ctx.save();
+                ctx.translate(22 * i + 16, 28);
+                ctx.rotate(angle);
+                ctx.fillText(captcha[i], 0, 0);
+                ctx.restore();
+              }
+              // Add some random lines for extra obfuscation
+              for (let i = 0; i < 4; i++) {
+                ctx.strokeStyle = '#b0c4de';
+                ctx.beginPath();
+                ctx.moveTo(Math.random() * 180, Math.random() * 40);
+                ctx.lineTo(Math.random() * 180, Math.random() * 40);
+                ctx.stroke();
+              }
+            }}
+            width={180}
+            height={40}
+            style={{borderRadius: 8, background: '#eef', boxShadow: '0 1px 4px #dbeafe'}}
+          />
           <button type="button" onClick={() => setCaptcha(generateCaptcha())} style={{background: '#2980b9', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 15}}>Refresh</button>
         </div>
         <input
@@ -155,7 +185,8 @@ const Auth = ({ onAuth }) => {
           onChange={e => setCaptchaInput(e.target.value)}
           required
           maxLength={8}
-          style={{padding: 10, borderRadius: 6, border: "1px solid #ccc", fontSize: 16}}
+          autoComplete="off"
+          style={{padding: 10, borderRadius: 6, border: "1px solid #ccc", fontSize: 16, letterSpacing: 2}}
         />
         {captchaError && <span style={{color: "#e74c3c", fontSize: 14}}>{captchaError}</span>}
 

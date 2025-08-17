@@ -294,29 +294,46 @@ const QuizCreator = ({ user }) => {
               </button>
             </form>
           ) : (
-            <>
+            <div>
               {questions.map((q, i) => (
-                <div key={i} style={{background: "#fff", borderRadius: 8, boxShadow: "0 1px 8px rgba(0,0,0,0.04)", padding: 16, marginBottom: 18}}>
-                  <strong>{q.question}</strong>
-                  {q.type && <span style={{marginLeft: 8, color: "#888", fontSize: 13}}>[{q.type}]</span>}
-                  {q.options && Array.isArray(q.options) && (
-                    <ul style={{marginTop: 8}}>
-                      {q.options.map((opt, idx) => <li key={idx}>{opt}</li>)}
-                    </ul>
+                <div key={i} style={{background: "#fff", borderRadius: 8, boxShadow: "0 1px 8px rgba(0,0,0,0.07)", padding: 20, marginBottom: 22}}>
+                  <div style={{fontWeight: 600, fontSize: 17, marginBottom: 6}}>
+                    {i + 1}. {q.question}
+                    {q.type && <span style={{marginLeft: 10, color: "#2980b9", fontSize: 13}}>[{q.type}]</span>}
+                  </div>
+                  {q.type === "MCQ" && q.options && Array.isArray(q.options) && (
+                    <div style={{marginTop: 10, display: "flex", flexDirection: "column", gap: 8}}>
+                      {q.options.map((opt, idx) => (
+                        <label key={idx} style={{display: "flex", alignItems: "center", gap: 8, fontSize: 16, background: "#f4f8fb", borderRadius: 6, padding: "6px 12px"}}>
+                          <input type="radio" name={`mcq-${i}`} disabled />
+                          {opt}
+                        </label>
+                      ))}
+                    </div>
                   )}
-                  {/* Answers hidden in preview */}
+                  {q.type === "MSQ" && q.options && Array.isArray(q.options) && (
+                    <div style={{marginTop: 10, display: "flex", flexDirection: "column", gap: 8}}>
+                      {q.options.map((opt, idx) => (
+                        <label key={idx} style={{display: "flex", alignItems: "center", gap: 8, fontSize: 16, background: "#f4f8fb", borderRadius: 6, padding: "6px 12px"}}>
+                          <input type="checkbox" name={`msq-${i}`} disabled />
+                          {opt}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  {q.type === "Short Answer" && (
+                    <div style={{marginTop: 10}}>
+                      <input type="text" disabled placeholder="Your answer..." style={{width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #dbeafe", fontSize: 16, background: "#f4f8fb"}} />
+                    </div>
+                  )}
+                  {q.type === "Numerical" && (
+                    <div style={{marginTop: 10}}>
+                      <input type="number" disabled placeholder="Enter number..." style={{width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #dbeafe", fontSize: 16, background: "#f4f8fb"}} />
+                    </div>
+                  )}
                 </div>
               ))}
-              {/* Formatted JSON block for AI-generated quiz */}
-              {useLLM && (
-                <div style={{marginTop: 32}}>
-                  <h4 style={{color: '#34495e'}}>Generated Quiz JSON</h4>
-                  <pre style={{background: '#222', color: '#eee', padding: 16, borderRadius: 8, maxHeight: 300, overflow: 'auto', fontSize: 14, fontFamily: 'Fira Mono, monospace'}}>
-                    {JSON.stringify(questions, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </>
+            </div>
           )}
         </div>
       )}
