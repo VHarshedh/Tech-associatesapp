@@ -1,24 +1,52 @@
 import React, { useState, useRef } from "react";
 import { auth } from "./firebase";
 import { useCreateUserWithEmailAndPassword, useSignInWithEmailAndPassword } from "react-firebase-hooks/auth";
-import ReCAPTCHA from "react-google-recaptcha";
-import axios from "axios";
+import { sendPasswordResetEmail } from "firebase/auth";
+// import ReCAPTCHA from "react-google-recaptcha";
+// import axios from "axios";
 
 const Auth = ({ onAuth }) => {
   const [isSignup, setIsSignup] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [emailError, setEmailError] = useState("");
-  const [captchaToken, setCaptchaToken] = useState("");
-  const recaptchaRef = useRef();
+  const [customError, setCustomError] = useState("");
+  const [resetSent, setResetSent] = useState(false);
+  // Captcha state
+  const [captcha, setCaptcha] = useState(() => generateCaptcha());
+  const [captchaInput, setCaptchaInput] = useState("");
+  const [captchaError, setCaptchaError] = useState("");
 
+  // Firebase hooks
   const [createUserWithEmailAndPassword, userSignup, loadingSignup, errorSignup] = useCreateUserWithEmailAndPassword(auth);
   const [signInWithEmailAndPassword, userSignin, loadingSignin, errorSignin] = useSignInWithEmailAndPassword(auth);
-  const [customError, setCustomError] = useState("");
 
-  const handleCaptcha = (token) => {
-    setCaptchaToken(token);
+  function generateCaptcha() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    for (let i = 0; i < 8; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  }
+  const handleForgotPassword = async () => {
+    setCustomError("");
+    setResetSent(false);
+    if (!validateEmail(email)) {
+      setCustomError("Please enter a valid email address to reset password.");
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setResetSent(true);
+    } catch (err) {
+      setCustomError(err.message || "Failed to send reset email.");
+    }
   };
+
+  // const handleCaptcha = (token) => {
+  //   setCaptchaToken(token);
+  // };
 
   const validateEmail = (value) => {
     // Simple email regex for validation
@@ -34,20 +62,18 @@ const Auth = ({ onAuth }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setCustomError("");
+    setCaptchaError("");
     if (!validateEmail(email)) {
       setCustomError("Please enter a valid email address.");
       return;
     }
-    if (!captchaToken) {
-      recaptchaRef.current.execute();
+    if (captchaInput !== captcha) {
+      setCaptchaError("Captcha does not match. Please try again.");
+      setCaptcha(generateCaptcha());
+      setCaptchaInput("");
       return;
     }
     try {
-      const res = await axios.post("/api/verify-captcha", { token: captchaToken });
-      if (!res.data.success) {
-        setCustomError("Captcha verification failed. Please try again.");
-        return;
-      }
       if (isSignup) {
         await createUserWithEmailAndPassword(email, password).catch(err => {
           setCustomError(err.message || "Sign up failed. Please try again.");
@@ -57,6 +83,8 @@ const Auth = ({ onAuth }) => {
           setCustomError(err.message || "Sign in failed. Please try again.");
         });
       }
+      setCaptcha(generateCaptcha());
+      setCaptchaInput("");
     } catch (err) {
       setCustomError("An unexpected error occurred. Please try again.");
     }
@@ -78,8 +106,27 @@ const Auth = ({ onAuth }) => {
       background: "#fff",
       fontFamily: "Segoe UI, Arial, sans-serif"
     }}>
-      <h2 style={{textAlign: "center", color: "#2c3e50"}}>{isSignup ? "Sign Up" : "Sign In"}</h2>
-      <form onSubmit={handleSubmit} style={{display: "flex", flexDirection: "column", gap: 16}} aria-label={isSignup ? "Sign Up Form" : "Sign In Form"}>
+    <h2 style={{textAlign: "center", color: "#2c3e50"}}>{isSignup ? "Sign Up" : "Sign In"}</h2>
+  <form onSubmit={handleSubmit} style={{display: "flex", flexDirection: "column", gap: 16}} aria-label={isSignup ? "Sign Up Form" : "Sign In Form"}>
+        {!isSignup && (
+          <button
+            type="button"
+            onClick={handleForgotPassword}
+            style={{
+              background: "none",
+              color: "#2980b9",
+              border: "none",
+              textDecoration: "underline",
+              cursor: "pointer",
+              marginTop: 4,
+              fontSize: 15,
+              alignSelf: "flex-end"
+            }}
+            aria-label="Forgot Password"
+          >
+            Forgot password?
+          </button>
+        )}
         <label htmlFor="email" style={{fontWeight: 500}}>Email</label>
         <input
           id="email"
@@ -94,6 +141,24 @@ const Auth = ({ onAuth }) => {
         />
         {emailError && <span id="email-error" style={{color: "#e74c3c", fontSize: 14}}>{emailError}</span>}
 
+        {/* Custom Captcha */}
+        <label htmlFor="captcha" style={{fontWeight: 500, marginTop: 8}}>Captcha</label>
+        <div style={{display: "flex", alignItems: "center", gap: 12, marginBottom: 4}}>
+          <span style={{fontFamily: 'Fira Mono, monospace', fontSize: 18, background: '#eef', padding: '6px 16px', borderRadius: 8, letterSpacing: 2}}>{captcha}</span>
+          <button type="button" onClick={() => setCaptcha(generateCaptcha())} style={{background: '#2980b9', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 15}}>Refresh</button>
+        </div>
+        <input
+          id="captcha"
+          type="text"
+          placeholder="Type the characters above"
+          value={captchaInput}
+          onChange={e => setCaptchaInput(e.target.value)}
+          required
+          maxLength={8}
+          style={{padding: 10, borderRadius: 6, border: "1px solid #ccc", fontSize: 16}}
+        />
+        {captchaError && <span style={{color: "#e74c3c", fontSize: 14}}>{captchaError}</span>}
+
         <label htmlFor="password" style={{fontWeight: 500}}>Password</label>
         <input
           id="password"
@@ -106,12 +171,7 @@ const Auth = ({ onAuth }) => {
           style={{padding: 10, borderRadius: 6, border: "1px solid #ccc", fontSize: 16}}
         />
 
-        <ReCAPTCHA
-          ref={recaptchaRef}
-          sitekey={process.env.REACT_APP_RECAPTCHA_SITE_KEY}
-          size="invisible"
-          onChange={handleCaptcha}
-        />
+  {/* reCAPTCHA removed */}
         <button
           type="submit"
           disabled={loadingSignup || loadingSignin}
@@ -134,6 +194,11 @@ const Auth = ({ onAuth }) => {
       {(customError || errorSignup || errorSignin) && (
         <div role="alert" style={{color: "#e74c3c", marginTop: 12, textAlign: "center"}}>
           {customError || errorSignup?.message || errorSignin?.message}
+        </div>
+      )}
+      {resetSent && (
+        <div style={{color: "#27ae60", marginTop: 8, textAlign: "center"}}>
+          Password reset email sent! Check your inbox.
         </div>
       )}
       <button
