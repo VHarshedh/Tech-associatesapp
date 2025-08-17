@@ -1,7 +1,9 @@
 
 import React, { useState } from 'react';
 import './App.css';
+
 import Auth from './Auth';
+import QuizCreator from './QuizCreator';
 
 function App() {
   const [user, setUser] = useState(null);
