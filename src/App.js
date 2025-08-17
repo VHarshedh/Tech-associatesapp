@@ -7,9 +7,14 @@ import QuizCreator from './QuizCreator';
 import QuizList from './QuizList';
 import AttemptHistory from './AttemptHistory';
 import { collection, addDoc } from 'firebase/firestore';
-import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "./firebase";
+import { getAuth, signInAnonymously, setPersistence, browserLocalPersistence } from "firebase/auth";
+
+const auth = getAuth();
+await setPersistence(auth, browserLocalPersistence);
+await signInAnonymously(auth);
+
 
 function App() {
   const [user, setUser] = useState(null);
