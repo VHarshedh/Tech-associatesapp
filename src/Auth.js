@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
 import { auth } from "./firebase";
 import { useCreateUserWithEmailAndPassword, useSignInWithEmailAndPassword } from "react-firebase-hooks/auth";
-import { sendPasswordResetEmail } from "firebase/auth";
+import { sendPasswordResetEmail, sendEmailVerification } from "firebase/auth";
 // import ReCAPTCHA from "react-google-recaptcha";
 // import axios from "axios";
 
@@ -75,7 +75,11 @@ const Auth = ({ onAuth }) => {
     }
     try {
       if (isSignup) {
-        await createUserWithEmailAndPassword(email, password).catch(err => {
+        await createUserWithEmailAndPassword(email, password).then(async (cred) => {
+          if (cred?.user && !cred.user.emailVerified) {
+            try { await sendEmailVerification(cred.user); } catch (e) { /* ignore */ }
+          }
+        }).catch(err => {
           setCustomError(err.message || "Sign up failed. Please try again.");
         });
       } else {

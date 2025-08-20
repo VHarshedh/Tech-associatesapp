@@ -8,12 +8,12 @@ import QuizList from './QuizList';
 import AttemptHistory from './AttemptHistory';
 import { collection, addDoc } from 'firebase/firestore';
 import { doc, setDoc } from "firebase/firestore";
+import { serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
-import { getAuth, signInAnonymously, setPersistence, browserLocalPersistence } from "firebase/auth";
+import { getAuth, setPersistence, browserLocalPersistence, onAuthStateChanged } from "firebase/auth";
+ 
+// Ensure auth state is persisted across page reloads
 
-const auth = getAuth();
-await setPersistence(auth, browserLocalPersistence);
-await signInAnonymously(auth);
 
 
 function App() {
@@ -22,6 +22,10 @@ function App() {
 
   useEffect(() => {
     const auth = getAuth();
+    // Set persistence once on mount (move from top-level to avoid top-level await errors)
+    setPersistence(auth, browserLocalPersistence).catch((err) => {
+      console.error("Failed to set auth persistence:", err);
+    });
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         setUser(firebaseUser);
@@ -144,10 +148,11 @@ function QuizAttempt({ quiz, user, onBack }) {
       }));
 
       const attemptData = {
-        userId: user?.uid ?? quiz.userId ?? (window.user && window.user.uid) ?? "anonymous",
+        userId: user.uid,
+        email: user.email || null,
         quizId: quiz.id ?? quiz.quizId ?? "",
         quizTopic: quiz.topic ?? "Untitled",
-        timestamp: new Date(),
+        timestamp: serverTimestamp(),
         scorePercent: getScore() ?? 0,
         responses,
       };

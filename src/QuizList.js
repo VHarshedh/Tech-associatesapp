@@ -1,37 +1,29 @@
 import React, { useEffect, useState } from "react";
 import { db } from "./firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
 
 const QuizList = ({ user, onAttempt }) => {
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchQuizzes = async () => {
-      try {
-        setLoading(true);
-
-        // 🔹 If you want ALL quizzes, replace this with just: collection(db, "quizzes")
-        const q = query(collection(db, "quizzes"), where("userId", "==", user.uid));
-        const snapshot = await getDocs(q);
-
-        const data = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-
-        console.log("Fetched quizzes:", data); // ✅ Debugging
+    if (!user?.uid) return;
+    setLoading(true);
+    const q = query(collection(db, "quizzes"), where("userId", "==", user.uid));
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        console.log("Fetched quizzes:", data);
         setQuizzes(data);
-      } catch (err) {
+        setLoading(false);
+      },
+      (err) => {
         console.error("Error fetching quizzes:", err);
-      } finally {
         setLoading(false);
       }
-    };
-
-    if (user?.uid) {
-      fetchQuizzes();
-    }
+    );
+    return () => unsubscribe();
   }, [user]);
 
   return (

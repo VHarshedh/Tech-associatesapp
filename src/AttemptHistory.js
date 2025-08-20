@@ -1,30 +1,36 @@
 // AttemptHistory.js
 import React, { useEffect, useState } from "react";
 import { db } from "./firebase";
-import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
 
 function AttemptHistory({ user }) {
   const [attempts, setAttempts] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
 
   useEffect(() => {
-    const fetchAttempts = async () => {
-      if (!user?.uid) return;
-      try {
-        const q = query(
-          collection(db, "attempts"),
-          where("userId", "==", user.uid),
-          orderBy("timestamp", "desc")
-        );
-        const snap = await getDocs(q);
-        const data = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-        console.log("Fetched attempts:", data); // ✅ Debug log
+    if (!user?.uid) return;
+    const q = query(
+      collection(db, "attempts"),
+      where("userId", "==", user.uid)
+    );
+    const unsubscribe = onSnapshot(
+      q,
+      (snap) => {
+        const data = snap.docs
+          .map((doc) => ({ id: doc.id, ...doc.data() }))
+          .sort((a, b) => {
+            const aMs = a.timestamp?.toMillis?.() || (a.timestamp?.seconds ? a.timestamp.seconds * 1000 : 0);
+            const bMs = b.timestamp?.toMillis?.() || (b.timestamp?.seconds ? b.timestamp.seconds * 1000 : 0);
+            return bMs - aMs;
+          });
+        console.log("Fetched attempts:", data);
         setAttempts(data);
-      } catch (err) {
+      },
+      (err) => {
         console.error("Failed to fetch attempts:", err);
       }
-    };
-    fetchAttempts();
+    );
+    return () => unsubscribe();
   }, [user]);
 
   return (
