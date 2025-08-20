@@ -1,4 +1,12 @@
 // src/App.js
+// This is the main app component that handles the authentication and quiz functionality.
+// It uses the Firebase Auth and Firestore services to manage user authentication and quiz data.
+// The component is responsible for:
+// 1. Handling user authentication
+// 2. Displaying the appropriate UI based on the user's authentication state
+// 3. Managing the state of the quiz attempt
+// 4. Displaying the quiz questions and handling user answers
+// 5. Submitting the quiz answers to the database
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
