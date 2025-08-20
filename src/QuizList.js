@@ -87,6 +87,28 @@ const QuizList = ({ user, onAttempt }) => {
                 >
                   Attempt
                 </button>
+                {qz.shareEnabled && (
+                  <button
+                    onClick={() => {
+                      const link = `${window.location.origin}/#/quiz/${qz.id}`;
+                      navigator.clipboard.writeText(link);
+                      alert("Link copied to clipboard");
+                    }}
+                    style={{
+                      marginTop: 10,
+                      marginLeft: 10,
+                      background: "#2980b9",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: 6,
+                      padding: "8px 16px",
+                      cursor: "pointer",
+                      fontWeight: 500,
+                    }}
+                  >
+                    Copy Share Link
+                  </button>
+                )}
               </li>
             );
           })}

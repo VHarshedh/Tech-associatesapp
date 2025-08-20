@@ -9,28 +9,38 @@ function AttemptHistory({ user }) {
 
   useEffect(() => {
     if (!user?.uid) return;
-    const q = query(
-      collection(db, "attempts"),
-      where("userId", "==", user.uid)
-    );
-    const unsubscribe = onSnapshot(
-      q,
-      (snap) => {
-        const data = snap.docs
-          .map((doc) => ({ id: doc.id, ...doc.data() }))
-          .sort((a, b) => {
-            const aMs = a.timestamp?.toMillis?.() || (a.timestamp?.seconds ? a.timestamp.seconds * 1000 : 0);
-            const bMs = b.timestamp?.toMillis?.() || (b.timestamp?.seconds ? b.timestamp.seconds * 1000 : 0);
-            return bMs - aMs;
-          });
-        console.log("Fetched attempts:", data);
-        setAttempts(data);
-      },
-      (err) => {
-        console.error("Failed to fetch attempts:", err);
-      }
-    );
-    return () => unsubscribe();
+    const ownQuery = query(collection(db, "attempts"), where("userId", "==", user.uid));
+    const ownerQuery = query(collection(db, "publicAttempts"), where("ownerId", "==", user.uid));
+
+    const mergeAndSet = (ownSnap, ownerSnap) => {
+      const own = ownSnap ? ownSnap.docs.map(d => ({ id: d.id, ...d.data() })) : [];
+      const received = ownerSnap ? ownerSnap.docs.map(d => ({ id: d.id, ...d.data() })) : [];
+      const map = new Map();
+      [...own, ...received].forEach(a => map.set(a.id, a));
+      const merged = Array.from(map.values()).sort((a, b) => {
+        const aMs = a.timestamp?.toMillis?.() || (a.timestamp?.seconds ? a.timestamp.seconds * 1000 : 0);
+        const bMs = b.timestamp?.toMillis?.() || (b.timestamp?.seconds ? b.timestamp.seconds * 1000 : 0);
+        return bMs - aMs;
+      });
+      setAttempts(merged);
+    };
+
+    let ownSnapCache = null;
+    let ownerSnapCache = null;
+
+    const unsubOwn = onSnapshot(ownQuery, (snap) => {
+      ownSnapCache = snap;
+      mergeAndSet(ownSnapCache, ownerSnapCache);
+    });
+    const unsubOwner = onSnapshot(ownerQuery, (snap) => {
+      ownerSnapCache = snap;
+      mergeAndSet(ownSnapCache, ownerSnapCache);
+    });
+
+    return () => {
+      unsubOwn();
+      unsubOwner();
+    };
   }, [user]);
 
   return (
@@ -91,6 +101,9 @@ function AttemptHistory({ user }) {
                       {attempt.quizTopic || "Untitled Quiz"}
                     </div>
                     <div style={{ fontSize: 13, color: "#666" }}>{dateStr}</div>
+                    <div style={{ fontSize: 13, color: "#666" }}>
+                      Submitted by: {attempt.participantName || (attempt.email ? attempt.email : "You")}
+                    </div>
                   </div>
                   <div
                     style={{

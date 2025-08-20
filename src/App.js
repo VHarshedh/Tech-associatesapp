@@ -14,7 +14,7 @@ import Auth from './Auth';
 import QuizCreator from './QuizCreator';
 import QuizList from './QuizList';
 import AttemptHistory from './AttemptHistory';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, getDoc } from 'firebase/firestore';
 import { doc, setDoc } from "firebase/firestore";
 import { serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
@@ -27,6 +27,7 @@ import { getAuth, setPersistence, browserLocalPersistence, onAuthStateChanged } 
 function App() {
   const [user, setUser] = useState(null);
   const [attemptQuiz, setAttemptQuiz] = useState(null);
+  const [publicQuiz, setPublicQuiz] = useState(null);
 
   useEffect(() => {
     const auth = getAuth();
@@ -39,15 +40,20 @@ function App() {
         setUser(firebaseUser);
 
         // ✅ Ensure Firestore user doc exists
-        await setDoc(
-          doc(db, "users", firebaseUser.uid),
-          {
-            name: firebaseUser.displayName || "Anonymous",
-            email: firebaseUser.email,
-            createdAt: new Date(),
-          },
-          { merge: true } // <- merge so we don’t overwrite data
-        );
+        try {
+          await setDoc(
+            doc(db, "users", firebaseUser.uid),
+            {
+              name: firebaseUser.displayName || "Anonymous",
+              email: firebaseUser.email,
+              createdAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+        } catch (e) {
+          // Don’t block app load if rules disallow this write
+          console.warn("Skipping user profile write due to permissions:", e?.message || e);
+        }
       } else {
         setUser(null);
       }
@@ -58,9 +64,43 @@ function App() {
 
   const isVerified = user?.emailVerified;
 
+  // Simple hash-based router for public quiz links: #/quiz/{id}
+  useEffect(() => {
+    const handleHash = async () => {
+      const hash = window.location.hash || "";
+      const match = hash.match(/^#\/(?:quiz)\/([A-Za-z0-9_-]+)/);
+      if (match && match[1]) {
+        const quizId = match[1];
+        try {
+          const ref = doc(db, "quizzes", quizId);
+          const snap = await getDoc(ref);
+          if (snap.exists()) {
+            const data = { id: quizId, ...snap.data() };
+            if (data.shareEnabled) {
+              setPublicQuiz(data);
+            } else {
+              setPublicQuiz({ disabled: true });
+            }
+          } else {
+            setPublicQuiz({ notFound: true });
+          }
+        } catch (e) {
+          setPublicQuiz({ error: true });
+        }
+      } else {
+        setPublicQuiz(null);
+      }
+    };
+    window.addEventListener('hashchange', handleHash);
+    handleHash();
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
+
   return (
     <div className="App">
-      {!user ? (
+      {publicQuiz ? (
+        <PublicQuizAttempt quiz={publicQuiz} onBack={() => { window.location.hash = ''; setPublicQuiz(null); }} />
+      ) : !user ? (
         <Auth onAuth={setUser} />
       ) : !isVerified ? (
         <div
@@ -165,7 +205,7 @@ function QuizAttempt({ quiz, user, onBack }) {
         responses,
       };
 
-      await addDoc(collection(db, 'attempts'), attemptData);
+      await addDoc(collection(db, 'publicAttempts'), attemptData);
     } catch (err) {
       // Optionally show error to user
       console.error('Failed to save attempt:', err);
@@ -203,7 +243,7 @@ function QuizAttempt({ quiz, user, onBack }) {
 
       <div style={{ marginBottom: 8, color: '#555' }}>
         Deadline:{' '}
-        {quiz.deadline ? new Date(quiz.deadline).toLocaleString() : 'None'}
+        {quiz.deadline ? (quiz.deadline.toDate?.() ? quiz.deadline.toDate().toLocaleString() : new Date(quiz.deadline).toLocaleString()) : 'None'}
       </div>
 
       {quiz.timed && !submitted && (
@@ -413,3 +453,258 @@ function QuizAttempt({ quiz, user, onBack }) {
 }
 
 export default App;
+
+function PublicQuizAttempt({ quiz, onBack }) {
+  const [answers, setAnswers] = useState({});
+  const [submitted, setSubmitted] = useState(false);
+  const [participantName, setParticipantName] = useState("");
+  const [score, setScore] = useState(0);
+
+  if (quiz?.notFound) {
+    return (
+      <div style={{ maxWidth: 600, margin: '40px auto', padding: 24 }}>
+        <h2>Quiz not found</h2>
+        <button onClick={onBack}>Back</button>
+      </div>
+    );
+  }
+  if (quiz?.disabled) {
+    return (
+      <div style={{ maxWidth: 600, margin: '40px auto', padding: 24 }}>
+        <h2>This quiz is not available for public attempts.</h2>
+        <button onClick={onBack}>Back</button>
+      </div>
+    );
+  }
+  if (quiz?.error) {
+    return (
+      <div style={{ maxWidth: 600, margin: '40px auto', padding: 24 }}>
+        <h2>Failed to load quiz.</h2>
+        <button onClick={onBack}>Back</button>
+      </div>
+    );
+  }
+
+  const getScore = () => {
+    let correct = 0;
+    quiz.questions.forEach((q, i) => {
+      if (q.type === 'MCQ' || q.type === 'Numerical' || q.type === 'Short Answer') {
+        if (
+          answers[i] !== undefined &&
+          String(answers[i]).trim().toLowerCase() === String(q.answer).trim().toLowerCase()
+        )
+          correct++;
+      } else if (q.type === 'MSQ') {
+        if (Array.isArray(q.answer) && Array.isArray(answers[i])) {
+          const a1 = q.answer.map((a) => String(a).trim().toLowerCase()).sort();
+          const a2 = answers[i].map((a) => String(a).trim().toLowerCase()).sort();
+          if (JSON.stringify(a1) === JSON.stringify(a2)) correct++;
+        }
+      }
+    });
+    return Math.round((correct / quiz.questions.length) * 100);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const scorePercent = getScore();
+    setScore(scorePercent);
+    setSubmitted(true);
+    try {
+      const responses = quiz.questions.map((q, i) => ({
+        question: q.question ?? "",
+        answer: answers[i] ?? null,
+      }));
+      const attemptData = {
+        ownerId: quiz.userId,
+        quizId: quiz.id,
+        quizTopic: quiz.topic ?? "Untitled",
+        participantName: participantName || "Anonymous",
+        timestamp: serverTimestamp(),
+        scorePercent,
+        responses,
+      };
+      await addDoc(collection(db, 'attempts'), attemptData);
+    } catch (err) {
+      console.error('Failed to save public attempt:', err);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        maxWidth: 600,
+        margin: '40px auto',
+        padding: 32,
+        borderRadius: 16,
+        background: '#f9f9f9',
+        boxShadow: '0 2px 24px rgba(0,0,0,0.10)',
+        fontFamily: 'Segoe UI, Arial, sans-serif',
+      }}
+    >
+      <button
+        onClick={onBack}
+        style={{
+          marginBottom: 16,
+          background: '#eee',
+          border: 'none',
+          borderRadius: 6,
+          padding: '8px 16px',
+          cursor: 'pointer',
+          fontWeight: 500,
+        }}
+      >
+        Back
+      </button>
+
+      <h2 style={{ color: '#2c3e50' }}>{quiz.topic}</h2>
+
+      <form onSubmit={handleSubmit} style={{ marginTop: 24 }}>
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ fontWeight: 600 }}>Your Name</label>
+          <input
+            type="text"
+            value={participantName}
+            onChange={(e) => setParticipantName(e.target.value)}
+            placeholder="Enter your name"
+            required
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              borderRadius: 6,
+              border: '1px solid #dbeafe',
+              fontSize: 16,
+              background: '#fff',
+            }}
+          />
+        </div>
+
+        {quiz.questions.map((q, i) => (
+          <div
+            key={i}
+            style={{
+              marginBottom: 28,
+              background: '#fff',
+              borderRadius: 8,
+              boxShadow: '0 1px 8px rgba(0,0,0,0.07)',
+              padding: 20,
+            }}
+          >
+            <div style={{ fontWeight: 600, fontSize: 17, marginBottom: 6 }}>
+              {i + 1}. {q.question}
+              {q.type && (
+                <span style={{ marginLeft: 10, color: '#2980b9', fontSize: 13 }}>
+                  [{q.type}]
+                </span>
+              )}
+            </div>
+
+            {q.type === 'MCQ' && q.options && Array.isArray(q.options) && (
+              <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {q.options.map((opt, idx) => (
+                  <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, background: '#f4f8fb', borderRadius: 6, padding: '6px 12px' }}>
+                    <input
+                      type="radio"
+                      name={`mcq-${i}`}
+                      value={opt}
+                      checked={answers[i] === opt}
+                      onChange={() => setAnswers((a) => ({ ...a, [i]: opt }))}
+                    />
+                    {opt}
+                  </label>
+                ))}
+              </div>
+            )}
+
+            {q.type === 'MSQ' && q.options && Array.isArray(q.options) && (
+              <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {q.options.map((opt, idx) => (
+                  <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, background: '#f4f8fb', borderRadius: 6, padding: '6px 12px' }}>
+                    <input
+                      type="checkbox"
+                      name={`msq-${i}`}
+                      checked={answers[i]?.includes(opt) || false}
+                      onChange={(e) => {
+                        let arr = answers[i] || [];
+                        if (e.target.checked) arr = [...arr, opt];
+                        else arr = arr.filter((o) => o !== opt);
+                        setAnswers((a) => ({ ...a, [i]: arr }));
+                      }}
+                    />
+                    {opt}
+                  </label>
+                ))}
+              </div>
+            )}
+
+            {q.type === 'Short Answer' && (
+              <div style={{ marginTop: 10 }}>
+                <input
+                  type="text"
+                  value={answers[i] || ''}
+                  onChange={(e) => setAnswers((a) => ({ ...a, [i]: e.target.value }))}
+                  placeholder="Your answer..."
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: 6,
+                    border: '1px solid #dbeafe',
+                    fontSize: 16,
+                    background: '#fff',
+                  }}
+                />
+              </div>
+            )}
+
+            {q.type === 'Numerical' && (
+              <div style={{ marginTop: 10 }}>
+                <input
+                  type="number"
+                  value={answers[i] || ''}
+                  onChange={(e) => setAnswers((a) => ({ ...a, [i]: e.target.value }))}
+                  placeholder="Enter number..."
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: 6,
+                    border: '1px solid #dbeafe',
+                    fontSize: 16,
+                    background: '#fff',
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        ))}
+
+        {!submitted && (
+          <button
+            type="submit"
+            style={{
+              background: '#2c3e50',
+              color: '#fff',
+              padding: '12px 24px',
+              border: 'none',
+              borderRadius: 8,
+              fontSize: 18,
+              fontWeight: 600,
+              marginTop: 10,
+            }}
+          >
+            Submit Quiz
+          </button>
+        )}
+      </form>
+
+      {submitted && (
+        <div style={{ marginTop: 24, color: '#27ae60', fontSize: 17 }}>
+          <strong>Quiz submitted!</strong>
+          <br />
+          <span style={{ color: '#2c3e50', fontWeight: 500, fontSize: 18 }}>
+            Score: {score}%
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}

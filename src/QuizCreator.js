@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { db } from "./firebase";
-import { collection, addDoc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
 
@@ -49,6 +49,8 @@ const QuizCreator = ({ user }) => {
   const [deadline, setDeadline] = useState("");
   const [timed, setTimed] = useState(false);
   const [timerDuration, setTimerDuration] = useState(0);
+  const [shareEnabled, setShareEnabled] = useState(false);
+  const [shareLink, setShareLink] = useState("");
 
   const handleTypeChange = (type) => {
     setSelectedTypes(prev => prev.includes(type)
@@ -69,19 +71,25 @@ const QuizCreator = ({ user }) => {
           setError("Failed to generate quiz with Gemini.");
         } else {
           setQuestions(quizQuestions);
-          await addDoc(collection(db, "quizzes"), {
+          const docRef = await addDoc(collection(db, "quizzes"), {
             userId: user.uid,
             topic,
             types: selectedTypes,
             questions: quizQuestions,
-            deadline: deadline ? new Date(deadline).toISOString() : null,
+            deadline: deadline ? new Date(deadline) : null,
             timed,
-            timerDuration: timed ? timerDuration : null,
-            created: new Date()
+            timerDuration: timed ? Number(timerDuration) : null,
+            created: serverTimestamp(),
+            shareEnabled
           });
           setSuccess("Quiz saved successfully!");
+          if (shareEnabled) {
+            const link = `${window.location.origin}/#/quiz/${docRef.id}`;
+            setShareLink(link);
+          }
         }
       } catch (err) {
+        console.error("Failed to save AI-generated quiz:", err);
         setError("Failed to save AI-generated quiz: " + (err.message || err));
       }
       setLoading(false);
@@ -128,7 +136,7 @@ const QuizCreator = ({ user }) => {
       fontFamily: "Segoe UI, Arial, sans-serif"
     }}>
       <h2 style={{textAlign: "center", color: "#2c3e50"}}>Create a Quiz</h2>
-  <form onSubmit={handleCreateQuiz} style={{display: "flex", flexDirection: "column", gap: 18}}>
+      <form onSubmit={handleCreateQuiz} style={{display: "flex", flexDirection: "column", gap: 18}}>
         <label style={{fontWeight: 500, marginTop: 8}}>
           <input type="checkbox" checked={timed} onChange={e => setTimed(e.target.checked)} /> Timed Quiz
         </label>
@@ -138,8 +146,8 @@ const QuizCreator = ({ user }) => {
             <input id="timerDuration" type="number" min={1} max={180} value={timerDuration} onChange={e => setTimerDuration(e.target.value)} style={{padding: 8, borderRadius: 6, border: "1px solid #ccc", fontSize: 16, width: 100}} />
           </div>
         )}
-  <label htmlFor="deadline" style={{fontWeight: 500}}>Quiz Deadline</label>
-  <input id="deadline" type="datetime-local" value={deadline} onChange={e => setDeadline(e.target.value)} style={{padding: 10, borderRadius: 6, border: "1px solid #ccc", fontSize: 16}} />
+        <label htmlFor="deadline" style={{fontWeight: 500}}>Quiz Deadline</label>
+        <input id="deadline" type="datetime-local" value={deadline} onChange={e => setDeadline(e.target.value)} style={{padding: 10, borderRadius: 6, border: "1px solid #ccc", fontSize: 16}} />
         <label htmlFor="topic" style={{fontWeight: 500}}>Quiz Topic</label>
         <input id="topic" type="text" value={topic} onChange={e => setTopic(e.target.value)} placeholder="Enter topic" required style={{padding: 10, borderRadius: 6, border: "1px solid #ccc", fontSize: 16}} />
 
@@ -159,13 +167,26 @@ const QuizCreator = ({ user }) => {
           <input type="checkbox" checked={useLLM} onChange={e => setUseLLM(e.target.checked)} />
           <span>Generate quiz using Gemini AI</span>
         </label>
+        <label style={{display: "flex", alignItems: "center", gap: 8}}>
+          <input type="checkbox" checked={shareEnabled} onChange={e => setShareEnabled(e.target.checked)} />
+          <span>Enable shareable link (anyone can attempt)</span>
+        </label>
         {useLLM && (
           <div style={{background: "#eef", padding: 12, borderRadius: 8, margin: "8px 0"}}>
             <strong>Prompt to AI:</strong>
             <div style={{fontSize: 15, marginTop: 4}}>
               Generate a quiz with {numQuestions} questions on the topic: <b>{topic || "[topic]"}</b>. <br />
               The questions should be a mix of these types: <b>{selectedTypes.join(", ")}</b>.<br />
-              Format: [&#123;type, question, options:[], answer&#125;]
+              Format: [{"{"}type, question, options:[], answer{"}"}]
+            </div>
+          </div>
+        )}
+        {shareEnabled && shareLink && (
+          <div style={{background: "#eef", padding: 12, borderRadius: 8}}>
+            <div style={{fontWeight: 600}}>Shareable link</div>
+            <div style={{display: "flex", gap: 8, alignItems: "center", marginTop: 6}}>
+              <input type="text" readOnly value={shareLink} style={{flex: 1, padding: 8, borderRadius: 6, border: "1px solid #ccc"}} />
+              <button type="button" onClick={() => { navigator.clipboard.writeText(shareLink); }} style={{background: "#2c3e50", color: "#fff", border: "none", borderRadius: 6, padding: "8px 12px", cursor: "pointer"}}>Copy</button>
             </div>
           </div>
         )}
@@ -209,18 +230,24 @@ const QuizCreator = ({ user }) => {
                 setEditing(false);
                 setLoading(true);
                 try {
-                  await addDoc(collection(db, "quizzes"), {
+                  const docRef = await addDoc(collection(db, "quizzes"), {
                     userId: user.uid,
                     topic,
                     types: selectedTypes,
                     questions,
-                    deadline: deadline ? new Date(deadline).toISOString() : null,
+                    deadline: deadline ? new Date(deadline) : null,
                     timed,
-                    timerDuration: timed ? timerDuration : null,
-                    created: new Date()
+                    timerDuration: timed ? Number(timerDuration) : null,
+                    created: serverTimestamp(),
+                    shareEnabled
                   });
                   setSuccess("Quiz saved successfully!");
+                  if (shareEnabled) {
+                    const link = `${window.location.origin}/#/quiz/${docRef.id}`;
+                    setShareLink(link);
+                  }
                 } catch (err) {
+                  console.error("Failed to save quiz:", err);
                   setError("Failed to save quiz: " + (err.message || err));
                 }
                 setLoading(false);
