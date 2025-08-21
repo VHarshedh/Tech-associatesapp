@@ -296,7 +296,7 @@ function QuizAttempt({ quiz, user, onBack }) {
               )}
             </div>
 
-            {q.type === 'MCQ' && q.options && Array.isArray(q.options) && (
+            {q.type?.toUpperCase() === 'MCQ' && q.options && Array.isArray(q.options) && (
               <div
                 style={{
                   marginTop: 10,
@@ -332,7 +332,7 @@ function QuizAttempt({ quiz, user, onBack }) {
               </div>
             )}
 
-            {q.type === 'MSQ' && q.options && Array.isArray(q.options) && (
+            {q.type?.toUpperCase() === 'MSQ' && q.options && Array.isArray(q.options) && (
               <div
                 style={{
                   marginTop: 10,
@@ -641,7 +641,7 @@ function PublicQuizAttempt({ quiz, onBack }) {
               )}
             </div>
 
-            {q.type === 'MCQ' && q.options && Array.isArray(q.options) && (
+            {q.type?.toUpperCase() === 'MCQ' && q.options && Array.isArray(q.options) && (
               <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {q.options.map((opt, idx) => (
                   <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, background: '#f4f8fb', borderRadius: 6, padding: '6px 12px' }}>
@@ -658,7 +658,7 @@ function PublicQuizAttempt({ quiz, onBack }) {
               </div>
             )}
 
-            {q.type === 'MSQ' && q.options && Array.isArray(q.options) && (
+            {q.type?.toUpperCase() === 'MSQ' && q.options && Array.isArray(q.options) && (
               <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {q.options.map((opt, idx) => (
                   <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, background: '#f4f8fb', borderRadius: 6, padding: '6px 12px' }}>
