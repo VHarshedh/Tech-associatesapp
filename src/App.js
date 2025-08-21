@@ -296,13 +296,13 @@ function QuizAttempt({ quiz, user, onBack }) {
   const getScore = () => {
     let correct = 0;
     quiz.questions.forEach((q, i) => {
-      if (q.type === 'MCQ' || q.type === 'Numerical' || q.type === 'Short Answer') {
+      if (q.type?.toUpperCase() === 'MCQ' || q.type?.toUpperCase() === 'NUMERICAL' || q.type?.toUpperCase() === 'SHORT ANSWER') {
         if (
           answers[i] !== undefined &&
           String(answers[i]).trim().toLowerCase() === String(q.answer).trim().toLowerCase()
         )
           correct++;
-      } else if (q.type === 'MSQ') {
+      } else if (q.type?.toUpperCase() === 'MSQ') {
         if (Array.isArray(q.answer) && Array.isArray(answers[i])) {
           const a1 = q.answer.map((a) => String(a).trim().toLowerCase()).sort();
           const a2 = answers[i].map((a) => String(a).trim().toLowerCase()).sort();
@@ -646,8 +646,8 @@ function QuizAttempt({ quiz, user, onBack }) {
                         {q.type?.toUpperCase() === 'MCQ' && 'Select one answer'}
                         {q.type?.toUpperCase() === 'MSQ' && 'Select multiple answers'}
                         {(q.type === 'multiple_choice' || q.type?.toLowerCase() === 'multiple_choice') && 'Type your answer'}
-                        {(q.type === 'Short Answer' || q.type === 'short_answer') && 'Provide a detailed answer'}
-                        {(q.type === 'Numerical' || q.type?.toLowerCase() === 'numerical') && 'Enter a number'}
+                        {(q.type === 'Short Answer' || q.type === 'short_answer' || q.type?.toLowerCase() === 'short_answer') && 'Provide a detailed answer'}
+                        {(q.type === 'Numerical' || q.type?.toLowerCase() === 'numerical' || q.type?.toLowerCase() === 'number') && 'Enter a number'}
                       </span>
                     </div>
                   )}
@@ -1267,17 +1267,49 @@ function PublicQuizAttempt({ quiz, onBack }) {
   const getScore = () => {
     let correct = 0;
     quiz.questions.forEach((q, i) => {
-      if (q.type?.toUpperCase() === 'MCQ' || q.type?.toUpperCase() === 'NUMERICAL' || q.type?.toUpperCase() === 'SHORT ANSWER') {
+      // Handle MCQ questions
+      if (q.type?.toUpperCase() === 'MCQ') {
         if (
           answers[i] !== undefined &&
+          answers[i] !== null &&
+          answers[i] !== '' &&
           String(answers[i]).trim().toLowerCase() === String(q.answer).trim().toLowerCase()
-        )
+        ) {
           correct++;
-      } else if (q.type?.toUpperCase() === 'MSQ') {
+        }
+      }
+      // Handle MSQ questions
+      else if (q.type?.toUpperCase() === 'MSQ') {
         if (Array.isArray(q.answer) && Array.isArray(answers[i])) {
           const a1 = q.answer.map((a) => String(a).trim().toLowerCase()).sort();
           const a2 = answers[i].map((a) => String(a).trim().toLowerCase()).sort();
           if (JSON.stringify(a1) === JSON.stringify(a2)) correct++;
+        }
+      }
+      // Handle Numerical questions
+      else if (q.type?.toLowerCase() === 'numerical' || q.type?.toLowerCase() === 'number') {
+        if (
+          answers[i] !== undefined &&
+          answers[i] !== null &&
+          answers[i] !== '' &&
+          String(answers[i]).trim().toLowerCase() === String(q.answer).trim().toLowerCase()
+        ) {
+          correct++;
+        }
+      }
+      // Handle Short Answer questions (including multiple_choice from Gemini)
+      else if (q.type?.toLowerCase() === 'short answer' || 
+               q.type?.toLowerCase() === 'shortanswer' || 
+               q.type === 'short_answer' || 
+               q.type?.toLowerCase() === 'short_answer' ||
+               q.type?.toLowerCase() === 'multiple_choice') {
+        if (
+          answers[i] !== undefined &&
+          answers[i] !== null &&
+          answers[i] !== '' &&
+          String(answers[i]).trim().toLowerCase() === String(q.answer).trim().toLowerCase()
+        ) {
+          correct++;
         }
       }
     });
@@ -1293,7 +1325,53 @@ function PublicQuizAttempt({ quiz, onBack }) {
       return;
     }
     
+    // Debug scoring
+    console.log("=== SCORING DEBUG ===");
+    console.log("Quiz questions:", quiz.questions);
+    console.log("User answers:", answers);
+    quiz.questions.forEach((q, i) => {
+      const userAnswer = answers[i];
+      const correctAnswer = q.answer;
+      let isCorrect = false;
+      
+      if (q.type?.toUpperCase() === 'MCQ') {
+        isCorrect = userAnswer !== undefined && 
+                   userAnswer !== null && 
+                   userAnswer !== '' && 
+                   String(userAnswer).trim().toLowerCase() === String(correctAnswer).trim().toLowerCase();
+        console.log(`Question ${i + 1} (MCQ):`, {
+          type: q.type,
+          question: q.question,
+          correctAnswer: correctAnswer,
+          userAnswer: userAnswer,
+          isCorrect: isCorrect,
+          comparison: `${String(userAnswer || '').trim().toLowerCase()} === ${String(correctAnswer || '').trim().toLowerCase()}`
+        });
+      } else if (q.type?.toUpperCase() === 'MSQ') {
+        // MSQ logic
+        isCorrect = Array.isArray(correctAnswer) && Array.isArray(userAnswer);
+        console.log(`Question ${i + 1} (MSQ):`, {
+          type: q.type,
+          question: q.question,
+          correctAnswer: correctAnswer,
+          userAnswer: userAnswer,
+          isCorrect: isCorrect
+        });
+      } else {
+        // Other question types
+        isCorrect = String(userAnswer || '').trim().toLowerCase() === String(correctAnswer || '').trim().toLowerCase();
+        console.log(`Question ${i + 1} (${q.type}):`, {
+          type: q.type,
+          question: q.question,
+          correctAnswer: correctAnswer,
+          userAnswer: userAnswer,
+          isCorrect: isCorrect
+        });
+      }
+    });
+    
     const scorePercent = getScore();
+    console.log("Final score:", scorePercent + "%");
     setScore(scorePercent);
     setSubmitted(true);
     
@@ -1645,6 +1723,89 @@ function PublicQuizAttempt({ quiz, onBack }) {
                     background: '#fff',
                   }}
                 />
+              </div>
+            )}
+
+            {/* Show correct answers after submission */}
+            {submitted && (
+              <div style={{ 
+                marginTop: '20px', 
+                padding: '16px', 
+                background: '#f0fdf4', 
+                border: '1px solid #bbf7d0', 
+                borderRadius: '12px',
+                color: '#166534'
+              }}>
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '8px', 
+                  marginBottom: '8px',
+                  fontWeight: '600'
+                }}>
+                  <span style={{ fontSize: '16px' }}>✅</span>
+                  <span>Correct Answer:</span>
+                </div>
+                <div style={{ 
+                  fontSize: '16px', 
+                  fontWeight: '500',
+                  padding: '8px 12px',
+                  background: '#ffffff',
+                  borderRadius: '8px',
+                  border: '1px solid #bbf7d0'
+                }}>
+                  {Array.isArray(q.answer) ? q.answer.join(', ') : q.answer}
+                </div>
+                {answers[i] && (
+                  <div style={{ 
+                    marginTop: '12px',
+                    padding: '8px 12px',
+                    background: answers[i] === q.answer || 
+                      (Array.isArray(q.answer) && Array.isArray(answers[i]) && 
+                       JSON.stringify(q.answer.map(a => String(a).trim().toLowerCase()).sort()) === 
+                       JSON.stringify(answers[i].map(a => String(a).trim().toLowerCase()).sort())) ||
+                      (q.answer && answers[i] && 
+                       String(q.answer).trim().toLowerCase() === String(answers[i]).trim().toLowerCase())
+                        ? '#f0fdf4' : '#fef2f2',
+                    border: answers[i] === q.answer || 
+                      (Array.isArray(q.answer) && Array.isArray(answers[i]) && 
+                       JSON.stringify(q.answer.map(a => String(a).trim().toLowerCase()).sort()) === 
+                       JSON.stringify(answers[i].map(a => String(a).trim().toLowerCase()).sort())) ||
+                      (q.answer && answers[i] && 
+                       String(q.answer).trim().toLowerCase() === String(answers[i]).trim().toLowerCase())
+                        ? '1px solid #bbf7d0' : '1px solid #fecaca',
+                    borderRadius: '8px',
+                    color: answers[i] === q.answer || 
+                      (Array.isArray(q.answer) && Array.isArray(answers[i]) && 
+                       JSON.stringify(q.answer.map(a => String(a).trim().toLowerCase()).sort()) === 
+                       JSON.stringify(answers[i].map(a => String(a).trim().toLowerCase()).sort())) ||
+                      (q.answer && answers[i] && 
+                       String(q.answer).trim().toLowerCase() === String(answers[i]).trim().toLowerCase())
+                        ? '#166534' : '#dc2626'
+                  }}>
+                    <div style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '8px', 
+                      marginBottom: '4px',
+                      fontWeight: '600'
+                    }}>
+                      <span style={{ fontSize: '14px' }}>
+                        {answers[i] === q.answer || 
+                          (Array.isArray(q.answer) && Array.isArray(answers[i]) && 
+                           JSON.stringify(q.answer.map(a => String(a).trim().toLowerCase()).sort()) === 
+                           JSON.stringify(answers[i].map(a => String(a).trim().toLowerCase()).sort())) ||
+                          (q.answer && answers[i] && 
+                           String(q.answer).trim().toLowerCase() === String(answers[i]).trim().toLowerCase())
+                            ? '🎯' : '❌'}
+                      </span>
+                      <span>Your Answer:</span>
+                    </div>
+                    <div style={{ fontSize: '15px' }}>
+                      {Array.isArray(answers[i]) ? answers[i].join(', ') : answers[i]}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
