@@ -205,7 +205,7 @@ function QuizAttempt({ quiz, user, onBack }) {
         responses,
       };
 
-      await addDoc(collection(db, 'publicAttempts'), attemptData);
+      await addDoc(collection(db, 'attempts'), attemptData);
     } catch (err) {
       // Optionally show error to user
       console.error('Failed to save attempt:', err);
@@ -459,6 +459,16 @@ function PublicQuizAttempt({ quiz, onBack }) {
   const [submitted, setSubmitted] = useState(false);
   const [participantName, setParticipantName] = useState("");
   const [score, setScore] = useState(0);
+  const [user, setUser] = useState(null);
+
+  // Check if user is logged in
+  useEffect(() => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+    });
+    return () => unsubscribe();
+  }, []);
 
   if (quiz?.notFound) {
     return (
@@ -510,23 +520,46 @@ function PublicQuizAttempt({ quiz, onBack }) {
     const scorePercent = getScore();
     setScore(scorePercent);
     setSubmitted(true);
+    
+    console.log("Submit attempt - User state:", user ? "Logged in" : "Anonymous");
+    console.log("User UID:", user?.uid);
+    console.log("Quiz owner UID:", quiz.userId);
+    
     try {
       const responses = quiz.questions.map((q, i) => ({
         question: q.question ?? "",
         answer: answers[i] ?? null,
       }));
-      const attemptData = {
-        ownerId: quiz.userId,
-        quizId: quiz.id,
-        quizTopic: quiz.topic ?? "Untitled",
-        participantName: participantName || "Anonymous",
-        timestamp: serverTimestamp(),
-        scorePercent,
-        responses,
-      };
-      await addDoc(collection(db, 'attempts'), attemptData);
+
+      if (user) {
+        // Logged in user - save to attempts collection
+        console.log("Saving to 'attempts' collection for logged-in user");
+        const attemptData = {
+          userId: user.uid,
+          email: user.email || null,
+          quizId: quiz.id,
+          quizTopic: quiz.topic ?? "Untitled",
+          timestamp: serverTimestamp(),
+          scorePercent,
+          responses,
+        };
+        await addDoc(collection(db, 'attempts'), attemptData);
+      } else {
+        // Anonymous user - save to publicAttempts collection
+        console.log("Saving to 'publicAttempts' collection for anonymous user");
+        const attemptData = {
+          ownerId: quiz.userId,
+          quizId: quiz.id,
+          quizTopic: quiz.topic ?? "Untitled",
+          participantName: participantName || "Anonymous",
+          timestamp: serverTimestamp(),
+          scorePercent,
+          responses,
+        };
+        await addDoc(collection(db, 'publicAttempts'), attemptData);
+      }
     } catch (err) {
-      console.error('Failed to save public attempt:', err);
+      console.error('Failed to save attempt:', err);
     }
   };
 
@@ -560,24 +593,26 @@ function PublicQuizAttempt({ quiz, onBack }) {
       <h2 style={{ color: '#2c3e50' }}>{quiz.topic}</h2>
 
       <form onSubmit={handleSubmit} style={{ marginTop: 24 }}>
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ fontWeight: 600 }}>Your Name</label>
-          <input
-            type="text"
-            value={participantName}
-            onChange={(e) => setParticipantName(e.target.value)}
-            placeholder="Enter your name"
-            required
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              borderRadius: 6,
-              border: '1px solid #dbeafe',
-              fontSize: 16,
-              background: '#fff',
-            }}
-          />
-        </div>
+        {!user && (
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontWeight: 600 }}>Your Name</label>
+            <input
+              type="text"
+              value={participantName}
+              onChange={(e) => setParticipantName(e.target.value)}
+              placeholder="Enter your name"
+              required
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                borderRadius: 6,
+                border: '1px solid #dbeafe',
+                fontSize: 16,
+                background: '#fff',
+              }}
+            />
+          </div>
+        )}
 
         {quiz.questions.map((q, i) => (
           <div
