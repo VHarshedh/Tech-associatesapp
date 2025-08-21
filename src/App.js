@@ -143,6 +143,13 @@ function App() {
 
 
 function QuizAttempt({ quiz, user, onBack }) {
+  console.log("--- VERCEL QUIZ DATA ---");
+  console.log("Received quiz object:", JSON.stringify(quiz, null, 2));
+  if (quiz && quiz.questions && quiz.questions.length > 0) {
+    console.log("First question:", quiz.questions[0]);
+    console.log("Options of first question:", quiz.questions[0].options);
+    console.log("Is it an array?", Array.isArray(quiz.questions[0].options));
+  }
   const [answers, setAnswers] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [timeLeft, setTimeLeft] = useState(quiz.timed ? quiz.timerDuration * 60 : null);
