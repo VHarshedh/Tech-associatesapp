@@ -467,6 +467,7 @@ function PublicQuizAttempt({ quiz, onBack }) {
   const [participantName, setParticipantName] = useState("");
   const [score, setScore] = useState(0);
   const [user, setUser] = useState(null);
+  const [timeLeft, setTimeLeft] = useState(quiz.timed ? quiz.timerDuration * 60 : null);
 
   // Check if user is logged in
   useEffect(() => {
@@ -476,6 +477,19 @@ function PublicQuizAttempt({ quiz, onBack }) {
     });
     return () => unsubscribe();
   }, []);
+
+  // Timer countdown effect
+  useEffect(() => {
+    if (!quiz.timed || submitted) return;
+    if (timeLeft === 0) {
+      setSubmitted(true);
+      return;
+    }
+    const timer = setInterval(() => {
+      setTimeLeft((t) => (t > 0 ? t - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [quiz.timed, submitted, timeLeft]);
 
   if (quiz?.notFound) {
     return (
@@ -505,13 +519,13 @@ function PublicQuizAttempt({ quiz, onBack }) {
   const getScore = () => {
     let correct = 0;
     quiz.questions.forEach((q, i) => {
-      if (q.type === 'MCQ' || q.type === 'Numerical' || q.type === 'Short Answer') {
+      if (q.type?.toUpperCase() === 'MCQ' || q.type?.toUpperCase() === 'NUMERICAL' || q.type?.toUpperCase() === 'SHORT ANSWER') {
         if (
           answers[i] !== undefined &&
           String(answers[i]).trim().toLowerCase() === String(q.answer).trim().toLowerCase()
         )
           correct++;
-      } else if (q.type === 'MSQ') {
+      } else if (q.type?.toUpperCase() === 'MSQ') {
         if (Array.isArray(q.answer) && Array.isArray(answers[i])) {
           const a1 = q.answer.map((a) => String(a).trim().toLowerCase()).sort();
           const a2 = answers[i].map((a) => String(a).trim().toLowerCase()).sort();
@@ -598,6 +612,20 @@ function PublicQuizAttempt({ quiz, onBack }) {
       </button>
 
       <h2 style={{ color: '#2c3e50' }}>{quiz.topic}</h2>
+
+      {quiz.timed && !submitted && (
+        <div
+          style={{
+            margin: '16px 0',
+            color: '#e67e22',
+            fontWeight: 600,
+            fontSize: 16,
+          }}
+        >
+          Time Left: {Math.floor(timeLeft / 60)}:
+          {(timeLeft % 60).toString().padStart(2, '0')}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} style={{ marginTop: 24 }}>
         {!user && (
@@ -745,6 +773,12 @@ function PublicQuizAttempt({ quiz, onBack }) {
           <span style={{ color: '#2c3e50', fontWeight: 500, fontSize: 18 }}>
             Score: {score}%
           </span>
+        </div>
+      )}
+
+      {quiz.timed && submitted && (
+        <div style={{ marginTop: 12, color: '#e74c3c', fontSize: 16 }}>
+          <strong>Quiz ended due to timer.</strong>
         </div>
       )}
     </div>
