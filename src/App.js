@@ -154,6 +154,13 @@ function QuizAttempt({ quiz, user, onBack }) {
   const [submitted, setSubmitted] = useState(false);
   const [timeLeft, setTimeLeft] = useState(quiz.timed ? quiz.timerDuration * 60 : null);
 
+  // Check if deadline has passed
+  const isDeadlinePassed = () => {
+    if (!quiz.deadline) return false;
+    const deadline = quiz.deadline.toDate?.() || new Date(quiz.deadline);
+    return new Date() > deadline;
+  };
+
   useEffect(() => {
     if (!quiz.timed || submitted) return;
     if (timeLeft === 0) {
@@ -193,6 +200,13 @@ function QuizAttempt({ quiz, user, onBack }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Check if deadline has passed
+    if (isDeadlinePassed()) {
+      alert("This quiz is no longer available. The deadline has passed.");
+      return;
+    }
+    
     setSubmitted(true);
 
     // Save attempt to Firestore
@@ -248,10 +262,41 @@ function QuizAttempt({ quiz, user, onBack }) {
 
       <h2 style={{ color: '#2c3e50' }}>{quiz.topic}</h2>
 
+      {/* Debug section - remove after fixing */}
+      <div style={{ 
+        marginBottom: 16, 
+        padding: 12, 
+        background: '#f0f8ff', 
+        border: '1px solid #b0c4de', 
+        borderRadius: 6,
+        fontSize: 12,
+        color: '#333'
+      }}>
+        <strong>Debug Info:</strong><br/>
+        Total questions: {quiz.questions?.length || 0}<br/>
+        Question types: {quiz.questions?.map((q, idx) => `${idx + 1}: "${q.type}"`).join(', ') || 'None'}<br/>
+        Has Short Answer: {quiz.questions?.some(q => q.type === 'Short Answer' || q.type?.toLowerCase() === 'short answer') ? 'Yes' : 'No'}<br/>
+        Has Numerical: {quiz.questions?.some(q => q.type === 'Numerical' || q.type?.toLowerCase() === 'numerical') ? 'Yes' : 'No'}
+      </div>
+
       <div style={{ marginBottom: 8, color: '#555' }}>
         Deadline:{' '}
         {quiz.deadline ? (quiz.deadline.toDate?.() ? quiz.deadline.toDate().toLocaleString() : new Date(quiz.deadline).toLocaleString()) : 'None'}
       </div>
+
+      {isDeadlinePassed() && (
+        <div style={{ 
+          marginBottom: 16, 
+          padding: 12, 
+          background: '#fdf2f2', 
+          border: '1px solid #fecaca', 
+          borderRadius: 6,
+          color: '#dc2626',
+          fontWeight: 500
+        }}>
+          ⚠️ This quiz is no longer available. The deadline has passed.
+        </div>
+      )}
 
       {quiz.timed && !submitted && (
         <div
@@ -323,7 +368,7 @@ function QuizAttempt({ quiz, user, onBack }) {
                       name={`mcq-${i}`}
                       value={opt}
                       checked={answers[i] === opt}
-                      disabled={submitted}
+                      disabled={submitted || isDeadlinePassed()}
                       onChange={() => handleChange(i, opt)}
                     />
                     {opt}
@@ -358,7 +403,7 @@ function QuizAttempt({ quiz, user, onBack }) {
                       type="checkbox"
                       name={`msq-${i}`}
                       checked={answers[i]?.includes(opt) || false}
-                      disabled={submitted}
+                      disabled={submitted || isDeadlinePassed()}
                       onChange={(e) => {
                         let arr = answers[i] || [];
                         if (e.target.checked) arr = [...arr, opt];
@@ -372,12 +417,15 @@ function QuizAttempt({ quiz, user, onBack }) {
               </div>
             )}
 
-            {q.type === 'Short Answer' && (
+            {(q.type === 'Short Answer' || q.type?.toLowerCase() === 'short answer' || q.type?.toLowerCase() === 'shortanswer') && (
               <div style={{ marginTop: 10 }}>
+                <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>
+                  Debug: Question type = "{q.type}" (Short Answer match: true)
+                </div>
                 <input
                   type="text"
                   value={answers[i] || ''}
-                  disabled={submitted}
+                  disabled={submitted || isDeadlinePassed()}
                   onChange={(e) => handleChange(i, e.target.value)}
                   placeholder="Your answer..."
                   style={{
@@ -392,12 +440,15 @@ function QuizAttempt({ quiz, user, onBack }) {
               </div>
             )}
 
-            {q.type === 'Numerical' && (
+            {(q.type === 'Numerical' || q.type?.toLowerCase() === 'numerical' || q.type?.toLowerCase() === 'number') && (
               <div style={{ marginTop: 10 }}>
+                <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>
+                  Debug: Question type = "{q.type}" (Numerical match: true)
+                </div>
                 <input
                   type="number"
                   value={answers[i] || ''}
-                  disabled={submitted}
+                  disabled={submitted || isDeadlinePassed()}
                   onChange={(e) => handleChange(i, e.target.value)}
                   placeholder="Enter number..."
                   style={{
@@ -424,8 +475,9 @@ function QuizAttempt({ quiz, user, onBack }) {
         {!submitted && (
           <button
             type="submit"
+            disabled={isDeadlinePassed()}
             style={{
-              background: '#2c3e50',
+              background: isDeadlinePassed() ? '#ccc' : '#2c3e50',
               color: '#fff',
               padding: '12px 24px',
               border: 'none',
@@ -433,9 +485,10 @@ function QuizAttempt({ quiz, user, onBack }) {
               fontSize: 18,
               fontWeight: 600,
               marginTop: 10,
+              cursor: isDeadlinePassed() ? 'not-allowed' : 'pointer',
             }}
           >
-            Submit Quiz
+            {isDeadlinePassed() ? 'Quiz Expired' : 'Submit Quiz'}
           </button>
         )}
       </form>
@@ -468,6 +521,13 @@ function PublicQuizAttempt({ quiz, onBack }) {
   const [score, setScore] = useState(0);
   const [user, setUser] = useState(null);
   const [timeLeft, setTimeLeft] = useState(quiz.timed ? quiz.timerDuration * 60 : null);
+
+  // Check if deadline has passed
+  const isDeadlinePassed = () => {
+    if (!quiz.deadline) return false;
+    const deadline = quiz.deadline.toDate?.() || new Date(quiz.deadline);
+    return new Date() > deadline;
+  };
 
   // Check if user is logged in
   useEffect(() => {
@@ -538,6 +598,13 @@ function PublicQuizAttempt({ quiz, onBack }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Check if deadline has passed
+    if (isDeadlinePassed()) {
+      alert("This quiz is no longer available. The deadline has passed.");
+      return;
+    }
+    
     const scorePercent = getScore();
     setScore(scorePercent);
     setSubmitted(true);
@@ -613,6 +680,20 @@ function PublicQuizAttempt({ quiz, onBack }) {
 
       <h2 style={{ color: '#2c3e50' }}>{quiz.topic}</h2>
 
+      {isDeadlinePassed() && (
+        <div style={{ 
+          marginBottom: 16, 
+          padding: 12, 
+          background: '#fdf2f2', 
+          border: '1px solid #fecaca', 
+          borderRadius: 6,
+          color: '#dc2626',
+          fontWeight: 500
+        }}>
+          ⚠️ This quiz is no longer available. The deadline has passed.
+        </div>
+      )}
+
       {quiz.timed && !submitted && (
         <div
           style={{
@@ -678,6 +759,7 @@ function PublicQuizAttempt({ quiz, onBack }) {
                       name={`mcq-${i}`}
                       value={opt}
                       checked={answers[i] === opt}
+                      disabled={isDeadlinePassed()}
                       onChange={() => setAnswers((a) => ({ ...a, [i]: opt }))}
                     />
                     {opt}
@@ -694,6 +776,7 @@ function PublicQuizAttempt({ quiz, onBack }) {
                       type="checkbox"
                       name={`msq-${i}`}
                       checked={answers[i]?.includes(opt) || false}
+                      disabled={isDeadlinePassed()}
                       onChange={(e) => {
                         let arr = answers[i] || [];
                         if (e.target.checked) arr = [...arr, opt];
@@ -707,11 +790,12 @@ function PublicQuizAttempt({ quiz, onBack }) {
               </div>
             )}
 
-            {q.type === 'Short Answer' && (
+            {(q.type === 'Short Answer' || q.type?.toLowerCase() === 'short answer' || q.type?.toLowerCase() === 'shortanswer') && (
               <div style={{ marginTop: 10 }}>
                 <input
                   type="text"
                   value={answers[i] || ''}
+                  disabled={isDeadlinePassed()}
                   onChange={(e) => setAnswers((a) => ({ ...a, [i]: e.target.value }))}
                   placeholder="Your answer..."
                   style={{
@@ -726,11 +810,12 @@ function PublicQuizAttempt({ quiz, onBack }) {
               </div>
             )}
 
-            {q.type === 'Numerical' && (
+            {(q.type === 'Numerical' || q.type?.toLowerCase() === 'numerical' || q.type?.toLowerCase() === 'number') && (
               <div style={{ marginTop: 10 }}>
                 <input
                   type="number"
                   value={answers[i] || ''}
+                  disabled={isDeadlinePassed()}
                   onChange={(e) => setAnswers((a) => ({ ...a, [i]: e.target.value }))}
                   placeholder="Enter number..."
                   style={{
@@ -750,8 +835,9 @@ function PublicQuizAttempt({ quiz, onBack }) {
         {!submitted && (
           <button
             type="submit"
+            disabled={isDeadlinePassed()}
             style={{
-              background: '#2c3e50',
+              background: isDeadlinePassed() ? '#ccc' : '#2c3e50',
               color: '#fff',
               padding: '12px 24px',
               border: 'none',
@@ -759,9 +845,10 @@ function PublicQuizAttempt({ quiz, onBack }) {
               fontSize: 18,
               fontWeight: 600,
               marginTop: 10,
+              cursor: isDeadlinePassed() ? 'not-allowed' : 'pointer',
             }}
           >
-            Submit Quiz
+            {isDeadlinePassed() ? 'Quiz Expired' : 'Submit Quiz'}
           </button>
         )}
       </form>
