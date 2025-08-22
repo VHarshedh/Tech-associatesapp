@@ -216,12 +216,12 @@ const QuizCreator = ({ user }) => {
                 // Validate MCQ/MSQ answers
                 for (let i = 0; i < questions.length; i++) {
                   const q = questions[i];
-                  if ((q.type === "MCQ" || q.type === "MSQ") && q.options && Array.isArray(q.options)) {
-                    if (q.type === "MCQ" && !q.options.includes(q.answer)) {
+                  if ((q.type?.toUpperCase() === "MCQ" || q.type?.toUpperCase() === "MSQ") && q.options && Array.isArray(q.options)) {
+                    if (q.type?.toUpperCase() === "MCQ" && !q.options.includes(q.answer)) {
                       setError(`Answer for Question ${i + 1} must be one of the options.`);
                       return;
                     }
-                    if (q.type === "MSQ" && (!Array.isArray(q.answer) || q.answer.some(ans => !q.options.includes(ans)))) {
+                    if (q.type?.toUpperCase() === "MSQ" && (!Array.isArray(q.answer) || q.answer.some(ans => !q.options.includes(ans)))) {
                       setError(`All answers for Question ${i + 1} must be among the options.`);
                       return;
                     }
