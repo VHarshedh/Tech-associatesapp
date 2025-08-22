@@ -1581,16 +1581,17 @@ function PublicQuizAttempt({ quiz, onBack }) {
                     e.target.style.boxShadow = '0 1px 3px rgba(14, 165, 233, 0.1)';
                   }}
                 />
-              </div>
-              <div style={{ 
-                background: '#ffffff',
-                padding: '12px 16px',
-                borderRadius: '8px',
-                border: '1px solid #e0f2fe',
-                fontSize: '14px',
-                color: '#64748b'
-              }}>
-                <strong>Anonymous users</strong> can take this quiz without creating an account.
+                <div style={{ 
+                  marginTop: '12px',
+                  background: '#ffffff',
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  border: '1px solid #e0f2fe',
+                  fontSize: '14px',
+                  color: '#64748b'
+                }}>
+                  <strong>Anonymous users</strong> can take this quiz without creating an account.
+                </div>
               </div>
             </div>
           </div>
