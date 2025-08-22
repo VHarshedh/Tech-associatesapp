@@ -288,7 +288,7 @@ const QuizCreator = ({ user }) => {
                     </div>
                   )}
                   <label style={{fontWeight: 500, marginTop: 8}}>Answer</label>
-                  {q.type === "MSQ" ? (
+                  {q.type?.toUpperCase() === "MSQ" ? (
                     <input
                       type="text"
                       value={Array.isArray(q.answer) ? q.answer.join(", ") : ""}
@@ -328,7 +328,7 @@ const QuizCreator = ({ user }) => {
                     {i + 1}. {q.question}
                     {q.type && <span style={{marginLeft: 10, color: "#2980b9", fontSize: 13}}>[{q.type}]</span>}
                   </div>
-                  {q.type === "MCQ" && q.options && Array.isArray(q.options) && (
+                  {q.type?.toUpperCase() === "MCQ" && q.options && Array.isArray(q.options) && (
                     <div style={{marginTop: 10, display: "flex", flexDirection: "column", gap: 8}}>
                       {q.options.map((opt, idx) => (
                         <label key={idx} style={{display: "flex", alignItems: "center", gap: 8, fontSize: 16, background: "#f4f8fb", borderRadius: 6, padding: "6px 12px"}}>
@@ -338,7 +338,7 @@ const QuizCreator = ({ user }) => {
                       ))}
                     </div>
                   )}
-                  {q.type === "MSQ" && q.options && Array.isArray(q.options) && (
+                  {q.type?.toUpperCase() === "MSQ" && q.options && Array.isArray(q.options) && (
                     <div style={{marginTop: 10, display: "flex", flexDirection: "column", gap: 8}}>
                       {q.options.map((opt, idx) => (
                         <label key={idx} style={{display: "flex", alignItems: "center", gap: 8, fontSize: 16, background: "#f4f8fb", borderRadius: 6, padding: "6px 12px"}}>
@@ -348,12 +348,12 @@ const QuizCreator = ({ user }) => {
                       ))}
                     </div>
                   )}
-                  {q.type === "Short Answer" && (
+                  {q.type?.toLowerCase() === "short answer" && (
                     <div style={{marginTop: 10}}>
                       <input type="text" disabled placeholder="Your answer..." style={{width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #dbeafe", fontSize: 16, background: "#f4f8fb"}} />
                     </div>
                   )}
-                  {q.type === "Numerical" && (
+                  {q.type?.toLowerCase() === "numerical" && (
                     <div style={{marginTop: 10}}>
                       <input type="number" disabled placeholder="Enter number..." style={{width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #dbeafe", fontSize: 16, background: "#f4f8fb"}} />
                     </div>
