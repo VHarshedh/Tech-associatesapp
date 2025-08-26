@@ -388,7 +388,7 @@ function QuizAttempt({ quiz, user, onBack }) {
   const getScore = () => {
     let correct = 0;
     quiz.questions.forEach((q, i) => {
-      if (q.type?.toUpperCase() === 'MCQ' || q.type?.toUpperCase() === 'NUMERICAL' || q.type?.toUpperCase() === 'SHORT ANSWER') {
+      if (q.type?.toUpperCase() === 'MCQ' || q.type?.toUpperCase() === 'NUMERICAL' || q.type?.toUpperCase() === 'SHORT ANSWER' || q.type?.toLowerCase() === 'multiple_choice') {
         if (
           answers[i] !== undefined &&
           String(answers[i]).trim().toLowerCase() === String(q.answer).trim().toLowerCase()
@@ -734,19 +734,18 @@ function QuizAttempt({ quiz, user, onBack }) {
                       }}>
                         {q.type}
                       </span>
-                      <span style={{ fontSize: '14px', color: '#64748b' }}>
-                        {q.type?.toUpperCase() === 'MCQ' && 'Select one answer'}
-                        {q.type?.toUpperCase() === 'MSQ' && 'Select multiple answers'}
-                        {(q.type === 'multiple_choice' || q.type?.toLowerCase() === 'multiple_choice') && 'Type your answer'}
-                        {(q.type === 'Short Answer' || q.type === 'short_answer' || q.type?.toLowerCase() === 'short_answer') && 'Provide a detailed answer'}
-                        {(q.type === 'Numerical' || q.type?.toLowerCase() === 'numerical' || q.type?.toLowerCase() === 'number') && 'Enter a number'}
-                      </span>
+                                             <span style={{ fontSize: '14px', color: '#64748b' }}>
+                         {q.type?.toUpperCase() === 'MCQ' && 'Select one answer'}
+                         {q.type?.toUpperCase() === 'MSQ' && 'Select multiple answers'}
+                         {(q.type === 'Short Answer' || q.type === 'short_answer' || q.type?.toLowerCase() === 'short_answer') && 'Provide a detailed answer'}
+                         {(q.type === 'Numerical' || q.type?.toLowerCase() === 'numerical' || q.type?.toLowerCase() === 'number') && 'Enter a number'}
+                       </span>
                     </div>
                   )}
                 </div>
               </div>
 
-            {q.type?.toUpperCase() === 'MCQ' && q.options && Array.isArray(q.options) && (
+            {(q.type?.toUpperCase() === 'MCQ' || q.type?.toLowerCase() === 'multiple_choice') && q.options && Array.isArray(q.options) && (
               <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {q.options.map((opt, idx) => (
                   <label key={idx} style={{ 
@@ -832,31 +831,7 @@ function QuizAttempt({ quiz, user, onBack }) {
               </div>
             )}
 
-            {(q.type === 'multiple_choice' || q.type?.toLowerCase() === 'multiple_choice' || q.type?.toLowerCase() === 'multiple choice') && (
-              <div style={{ marginTop: 10 }}>
-                <textarea
-                  value={answers[i] || ''}
-                  disabled={submitted || isDeadlinePassed() || isTimerExpired()}
-                  onChange={(e) => handleChange(i, e.target.value)}
-                  placeholder="Type your answer here..."
-                  rows={4}
-                  style={{
-                    width: '100%',
-                    padding: '16px',
-                    borderRadius: '12px',
-                    border: isTimerExpired() ? '2px solid #fbbf24' : '2px solid #10b981',
-                    fontSize: '16px',
-                    background: isTimerExpired() ? '#fef3c7' : '#ffffff',
-                    resize: 'vertical',
-                    minHeight: '120px',
-                    fontFamily: 'inherit',
-                    lineHeight: '1.5',
-                    boxShadow: isTimerExpired() ? '0 2px 8px rgba(251, 191, 36, 0.2)' : '0 2px 8px rgba(16, 185, 129, 0.1)',
-                    transition: 'all 0.2s ease'
-                  }}
-                />
-              </div>
-            )}
+
 
             {(q.type === 'Short Answer' || q.type?.toLowerCase() === 'short answer' || q.type?.toLowerCase() === 'shortanswer' || q.type === 'short_answer' || q.type?.toLowerCase() === 'short_answer') && (
               <div style={{ marginTop: 10 }}>
@@ -1359,8 +1334,8 @@ function PublicQuizAttempt({ quiz, onBack }) {
   const getScore = () => {
     let correct = 0;
     quiz.questions.forEach((q, i) => {
-      // Handle MCQ questions
-      if (q.type?.toUpperCase() === 'MCQ') {
+      // Handle MCQ questions (including multiple_choice from existing quizzes)
+      if (q.type?.toUpperCase() === 'MCQ' || q.type?.toLowerCase() === 'multiple_choice') {
         if (
           answers[i] !== undefined &&
           answers[i] !== null &&
@@ -1389,12 +1364,11 @@ function PublicQuizAttempt({ quiz, onBack }) {
           correct++;
         }
       }
-      // Handle Short Answer questions (including multiple_choice from Gemini)
+      // Handle Short Answer questions
       else if (q.type?.toLowerCase() === 'short answer' || 
                q.type?.toLowerCase() === 'shortanswer' || 
                q.type === 'short_answer' || 
-               q.type?.toLowerCase() === 'short_answer' ||
-               q.type?.toLowerCase() === 'multiple_choice') {
+               q.type?.toLowerCase() === 'short_answer') {
         if (
           answers[i] !== undefined &&
           answers[i] !== null &&
@@ -1404,6 +1378,7 @@ function PublicQuizAttempt({ quiz, onBack }) {
           correct++;
         }
       }
+
     });
     return Math.round((correct / quiz.questions.length) * 100);
   };
@@ -1426,7 +1401,7 @@ function PublicQuizAttempt({ quiz, onBack }) {
       const correctAnswer = q.answer;
       let isCorrect = false;
       
-      if (q.type?.toUpperCase() === 'MCQ') {
+      if (q.type?.toUpperCase() === 'MCQ' || q.type?.toLowerCase() === 'multiple_choice') {
         isCorrect = userAnswer !== undefined && 
                    userAnswer !== null && 
                    userAnswer !== '' && 
@@ -1709,7 +1684,7 @@ function PublicQuizAttempt({ quiz, onBack }) {
               )}
             </div>
 
-            {q.type?.toUpperCase() === 'MCQ' && q.options && Array.isArray(q.options) && (
+            {(q.type?.toUpperCase() === 'MCQ' || q.type?.toLowerCase() === 'multiple_choice') && q.options && Array.isArray(q.options) && (
               <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {q.options.map((opt, idx) => (
                   <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, background: '#f4f8fb', borderRadius: 6, padding: '6px 12px' }}>
@@ -1749,30 +1724,7 @@ function PublicQuizAttempt({ quiz, onBack }) {
               </div>
             )}
 
-            {(q.type === 'multiple_choice' || q.type?.toLowerCase() === 'multiple_choice' || q.type?.toLowerCase() === 'multiple choice') && (
-              <div style={{ marginTop: 10 }}>
-                <textarea
-                  value={answers[i] || ''}
-                  disabled={isDeadlinePassed() || isTimerExpired()}
-                  onChange={(e) => setAnswers((a) => ({ ...a, [i]: e.target.value }))}
-                  placeholder="Type your answer here..."
-                  rows={4}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    borderRadius: 8,
-                    border: '2px solid #10b981',
-                    fontSize: 16,
-                    background: '#ffffff',
-                    resize: 'vertical',
-                    minHeight: '100px',
-                    fontFamily: 'inherit',
-                    lineHeight: '1.5',
-                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-                  }}
-                />
-              </div>
-            )}
+
 
             {(q.type === 'Short Answer' || q.type?.toLowerCase() === 'short answer' || q.type?.toLowerCase() === 'shortanswer' || q.type === 'short_answer' || q.type?.toLowerCase() === 'short_answer') && (
               <div style={{ marginTop: 10 }}>

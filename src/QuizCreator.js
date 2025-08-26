@@ -328,7 +328,7 @@ const QuizCreator = ({ user }) => {
                     {i + 1}. {q.question}
                     {q.type && <span style={{marginLeft: 10, color: "#2980b9", fontSize: 13}}>[{q.type}]</span>}
                   </div>
-                  {q.type?.toUpperCase() === "MCQ" && q.options && Array.isArray(q.options) && (
+                  {(q.type?.toUpperCase() === "MCQ" || q.type?.toLowerCase() === "multiple_choice") && q.options && Array.isArray(q.options) && (
                     <div style={{marginTop: 10, display: "flex", flexDirection: "column", gap: 8}}>
                       {q.options.map((opt, idx) => (
                         <label key={idx} style={{display: "flex", alignItems: "center", gap: 8, fontSize: 16, background: "#f4f8fb", borderRadius: 6, padding: "6px 12px"}}>

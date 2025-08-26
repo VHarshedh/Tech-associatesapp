@@ -94,7 +94,7 @@ const QuizList = ({ user, onAttempt }) => {
         </div>
 
         {/* Display options for MCQ and MSQ questions */}
-        {(question.type?.toUpperCase() === 'MCQ' || question.type?.toLowerCase() === 'mcq') && (
+        {(question.type?.toUpperCase() === 'MCQ' || question.type?.toLowerCase() === 'mcq' || question.type?.toLowerCase() === 'multiple_choice') && (
           <div style={{ marginTop: "8px" }}>
             <div style={{ fontSize: "14px", color: "#64748b", marginBottom: "8px", fontWeight: "500" }}>
               Options (Select one):
@@ -338,7 +338,10 @@ const QuizList = ({ user, onAttempt }) => {
                       </div>
                       <div style={{ textAlign: "center", padding: "12px", background: "#f8fafc", borderRadius: "8px" }}>
                         <div style={{ fontSize: "20px", fontWeight: "700", color: "#1e293b" }}>
-                          {qz.questions?.filter(q => q.type?.toUpperCase() === 'MCQ').length || 0}
+                          {qz.questions?.filter(q => 
+                            q.type?.toUpperCase() === 'MCQ' || 
+                            q.type?.toLowerCase() === 'multiple_choice'
+                          ).length || 0}
                         </div>
                         <div style={{ fontSize: "12px", color: "#64748b" }}>MCQ</div>
                       </div>
@@ -353,11 +356,10 @@ const QuizList = ({ user, onAttempt }) => {
                           {qz.questions?.filter(q => 
                             q.type?.toLowerCase() === 'short answer' || 
                             q.type?.toLowerCase() === 'short_answer' ||
-                            q.type?.toLowerCase() === 'numerical' ||
-                            q.type?.toLowerCase() === 'multiple_choice'
+                            q.type?.toLowerCase() === 'numerical'
                           ).length || 0}
                         </div>
-                        <div style={{ fontSize: "12px", color: "#64748b" }}>Text/Numeric</div>
+                        <div style={{ fontSize: "12px", color: "#64748b" }}>Text/Numerical</div>
                       </div>
                     </div>
 
