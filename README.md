@@ -1,70 +1,113 @@
-# Getting Started with Create React App
+# QuizMaster Pro
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+QuizMaster Pro is a full-stack web application that allows users to create, share, and take quizzes. It's built with React for the frontend and uses Firebase for authentication and database services.
 
-## Available Scripts
+## Features
 
-In the project directory, you can run:
+- **User Authentication:** Secure user sign-up and login using Firebase Authentication with email verification.
+- **Quiz Creation:** An intuitive interface for creating quizzes with various question types:
+  - Multiple Choice Questions (MCQ)
+  - Multiple Select Questions (MSQ)
+  - Short Answer
+  - Numerical
+- **Quiz Management:** Users can view, edit, and delete their created quizzes from a personal dashboard.
+- **Public Sharing:** Share quizzes with a public URL, allowing anyone to take them without needing an account.
+- **Timed Quizzes:** Set a time limit for quizzes to challenge participants.
+- **Quiz Deadlines:** Assign a deadline for quiz submissions.
+- **Attempt History:** Logged-in users can view their past quiz attempts and scores.
+- **reCAPTCHA Verification:** Protects against spam and bots on forms.
 
-### `npm start`
+## Tech Stack
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- **Frontend:**
+  - React
+  - `react-firebase-hooks` for easy integration with Firebase.
+  - `axios` for making HTTP requests.
+- **Backend:**
+  - Node.js with Express (for local development).
+  - Serverless function for reCAPTCHA verification (compatible with platforms like Vercel/Netlify).
+- **Database & Authentication:**
+  - Firebase Authentication
+  - Firestore Database
+- **Styling:**
+  - Inline CSS
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Getting Started
 
-### `npm test`
+To get a local copy up and running, follow these simple steps.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### Prerequisites
 
-### `npm run build`
+- Node.js and npm (or yarn)
+- A Firebase project
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### Installation
 
-The build is minified and the filenames include the hashes.
-Your app is ready to be deployed!
+1.  **Clone the repo**
+    ```sh
+    git clone https://github.com/your_username/harshedh.git
+    ```
+2.  **Navigate to the project directory**
+    ```sh
+    cd harshedh
+    ```
+3.  **Install NPM packages**
+    ```sh
+    npm install
+    ```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### Running the Application
 
-### `npm run eject`
+1.  **Set up environment variables:**
+    Create a `.env` file in the root of the project and add your Firebase project configuration and reCAPTCHA keys. See the [Environment Variables](#environment-variables) section for more details.
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+2.  **Start the React development server:**
+    ```sh
+    npm start
+    ```
+    The application will be available at `http://localhost:3000`.
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+3.  **Start the Express server (for local reCAPTCHA verification):**
+    ```sh
+    node server.js
+    ```
+    The server will run on `http://localhost:5000`.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## Environment Variables
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+To run this project, you will need to add the following environment variables to your `.env` file:
 
-## Learn More
+`REACT_APP_FIREBASE_API_KEY`
+`REACT_APP_FIREBASE_AUTH_DOMAIN`
+`REACT_APP_FIREBASE_PROJECT_ID`
+`REACT_APP_FIREBASE_STORAGE_BUCKET`
+`REACT_APP_FIREBASE_MESSAGING_SENDER_ID`
+`REACT_APP_FIREBASE_APP_ID`
+`REACT_APP_RECAPTCHA_SITE_KEY`
+`RECAPTCHA_SECRET_KEY`
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+You can get the Firebase configuration values from your Firebase project settings. The reCAPTCHA keys can be obtained from the [Google reCAPTCHA admin console](https://www.google.com/recaptcha/admin/).
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## Project Structure
 
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+```
+.
+├── api/
+│   └── verify-captcha.js  # Serverless function for reCAPTCHA
+├── public/                # Public assets
+├── src/
+│   ├── components/        # (Optional) For smaller, reusable components
+│   ├── App.css
+│   ├── App.js             # Main application component
+│   ├── App.test.js
+│   ├── AttemptHistory.js  # Component to show quiz attempt history
+│   ├── Auth.js            # Authentication component
+│   ├── QuizCreator.js     # Component for creating quizzes
+│   ├── QuizList.js        # Component to list user's quizzes
+│   ├── firebase.js        # Firebase configuration
+│   └── index.js           # Entry point of the React app
+├── .gitignore
+├── package.json
+├── README.md
+└── server.js              # Express server for local development
+```
