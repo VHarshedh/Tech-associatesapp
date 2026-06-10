@@ -1,26 +1,28 @@
 import React, { useState } from "react";
 import { db } from "./firebase";
-import { collection, addDoc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
 
 async function generateQuizWithGemini(numQuestions, topic, types) {
   const prompt = `Generate a quiz with ${numQuestions} questions on the topic: ${topic}. The questions should be a mix of these types: ${types.join(", ")}. Format: [{type, question, options:[], answer}]`;
   console.log("Gemini prompt:", prompt);
-  // Updated to use v1 and gemini-3.5-flash model
-  const response = await fetch("https://generativelanguage.googleapis.com/v1/models/gemini-3.5-flash:generateContent?key=" + GEMINI_API_KEY, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-  });
+
+  const response = await fetch(
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=" + GEMINI_API_KEY,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+    }
+  );
   const data = await response.json();
-  // Log raw Gemini response for debugging
   console.log("Gemini raw response:", data);
-  // Check for Gemini API errors
+
   if (data.error) {
     throw new Error(`Gemini API error: ${data.error.message || JSON.stringify(data.error)}`);
   }
-  // Parse Gemini response (assume JSON in text)
+
   try {
     let text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     console.log("Gemini response text:", text);
@@ -35,13 +37,13 @@ async function generateQuizWithGemini(numQuestions, topic, types) {
 }
 
 const QUIZ_TYPES = ["MCQ", "MSQ", "Short Answer", "Numerical"];
+
 const QuizCreator = ({ user }) => {
   const [numQuestions, setNumQuestions] = useState(5);
   const [topic, setTopic] = useState("");
   const [useLLM, setUseLLM] = useState(false);
   const [selectedTypes, setSelectedTypes] = useState(["MCQ"]);
   const [questions, setQuestions] = useState([]);
-  // Track if manual questions are being edited
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -49,11 +51,13 @@ const QuizCreator = ({ user }) => {
   const [deadline, setDeadline] = useState("");
   const [timed, setTimed] = useState(false);
   const [timerDuration, setTimerDuration] = useState(0);
+  const [shareEnabled, setShareEnabled] = useState(false);
+  const [shareLink, setShareLink] = useState("");
 
   const handleTypeChange = (type) => {
-    setSelectedTypes(prev => prev.includes(type)
-      ? prev.filter(t => t !== type)
-      : [...prev, type]);
+    setSelectedTypes(prev =>
+      prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
+    );
   };
 
   const handleCreateQuiz = async (e) => {
@@ -62,6 +66,7 @@ const QuizCreator = ({ user }) => {
     setSuccess("");
     setLoading(true);
     let quizQuestions = [];
+
     if (useLLM) {
       try {
         quizQuestions = await generateQuizWithGemini(numQuestions, topic, selectedTypes);
@@ -69,19 +74,25 @@ const QuizCreator = ({ user }) => {
           setError("Failed to generate quiz with Gemini.");
         } else {
           setQuestions(quizQuestions);
-          await addDoc(collection(db, "quizzes"), {
+          const docRef = await addDoc(collection(db, "quizzes"), {
             userId: user.uid,
             topic,
             types: selectedTypes,
             questions: quizQuestions,
-            deadline: deadline ? new Date(deadline).toISOString() : null,
+            deadline: deadline ? new Date(deadline) : null,
             timed,
-            timerDuration: timed ? timerDuration : null,
-            created: new Date()
+            timerDuration: timed ? Number(timerDuration) : null,
+            created: serverTimestamp(),
+            shareEnabled,
           });
           setSuccess("Quiz saved successfully!");
+          if (shareEnabled) {
+            const link = `${window.location.origin}/#/quiz/${docRef.id}`;
+            setShareLink(link);
+          }
         }
       } catch (err) {
+        console.error("Failed to save AI-generated quiz:", err);
         setError("Failed to save AI-generated quiz: " + (err.message || err));
       }
       setLoading(false);
@@ -90,24 +101,11 @@ const QuizCreator = ({ user }) => {
       quizQuestions = Array.from({ length: numQuestions }, (_, i) => {
         const type = selectedTypes[i % selectedTypes.length];
         if (type === "MCQ" || type === "MSQ") {
-          return {
-            type,
-            question: "",
-            options: ["", "", "", ""],
-            answer: type === "MSQ" ? [] : ""
-          };
+          return { type, question: "", options: ["", "", "", ""], answer: type === "MSQ" ? [] : "" };
         } else if (type === "Short Answer") {
-          return {
-            type,
-            question: "",
-            answer: ""
-          };
+          return { type, question: "", answer: "" };
         } else if (type === "Numerical") {
-          return {
-            type,
-            question: "",
-            answer: ""
-          };
+          return { type, question: "", answer: "" };
         }
         return { type, question: "", answer: "" };
       });
@@ -118,15 +116,18 @@ const QuizCreator = ({ user }) => {
   };
 
   return (
-    <div className="quiz-creator" style={{
-      maxWidth: 600,
-      margin: "40px auto",
-      padding: 32,
-      borderRadius: 16,
-      boxShadow: "0 2px 24px rgba(0,0,0,0.10)",
-      background: "#f9f9f9",
-      fontFamily: "Segoe UI, Arial, sans-serif"
-    }}>
+    <div
+      className="quiz-creator"
+      style={{
+        maxWidth: 600,
+        margin: "40px auto",
+        padding: 32,
+        borderRadius: 16,
+        boxShadow: "0 2px 24px rgba(0,0,0,0.10)",
+        background: "#f9f9f9",
+        fontFamily: "Segoe UI, Arial, sans-serif",
+      }}
+    >
       <h2 style={{ textAlign: "center", color: "#2c3e50" }}>Create a Quiz</h2>
       <form onSubmit={handleCreateQuiz} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
         <label style={{ fontWeight: 500, marginTop: 8 }}>
@@ -135,22 +136,61 @@ const QuizCreator = ({ user }) => {
         {timed && (
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <label htmlFor="timerDuration" style={{ fontWeight: 500 }}>Timer (minutes):</label>
-            <input id="timerDuration" type="number" min={1} max={180} value={timerDuration} onChange={e => setTimerDuration(e.target.value)} style={{ padding: 8, borderRadius: 6, border: "1px solid #ccc", fontSize: 16, width: 100 }} />
+            <input
+              id="timerDuration"
+              type="number"
+              min={1}
+              max={180}
+              value={timerDuration}
+              onChange={e => setTimerDuration(e.target.value)}
+              style={{ padding: 8, borderRadius: 6, border: "1px solid #ccc", fontSize: 16, width: 100 }}
+            />
           </div>
         )}
+
         <label htmlFor="deadline" style={{ fontWeight: 500 }}>Quiz Deadline</label>
-        <input id="deadline" type="datetime-local" value={deadline} onChange={e => setDeadline(e.target.value)} style={{ padding: 10, borderRadius: 6, border: "1px solid #ccc", fontSize: 16 }} />
+        <input
+          id="deadline"
+          type="datetime-local"
+          value={deadline}
+          onChange={e => setDeadline(e.target.value)}
+          style={{ padding: 10, borderRadius: 6, border: "1px solid #ccc", fontSize: 16 }}
+        />
+
         <label htmlFor="topic" style={{ fontWeight: 500 }}>Quiz Topic</label>
-        <input id="topic" type="text" value={topic} onChange={e => setTopic(e.target.value)} placeholder="Enter topic" required style={{ padding: 10, borderRadius: 6, border: "1px solid #ccc", fontSize: 16 }} />
+        <input
+          id="topic"
+          type="text"
+          value={topic}
+          onChange={e => setTopic(e.target.value)}
+          placeholder="Enter topic"
+          required
+          style={{ padding: 10, borderRadius: 6, border: "1px solid #ccc", fontSize: 16 }}
+        />
 
         <label htmlFor="numQuestions" style={{ fontWeight: 500 }}>Number of Questions</label>
-        <input id="numQuestions" type="number" min={1} max={50} value={numQuestions} onChange={e => setNumQuestions(e.target.value)} placeholder="Number of questions" required style={{ padding: 10, borderRadius: 6, border: "1px solid #ccc", fontSize: 16 }} />
+        <input
+          id="numQuestions"
+          type="number"
+          min={1}
+          max={50}
+          value={numQuestions}
+          onChange={e => setNumQuestions(e.target.value)}
+          placeholder="Number of questions"
+          required
+          style={{ padding: 10, borderRadius: 6, border: "1px solid #ccc", fontSize: 16 }}
+        />
 
         <label style={{ fontWeight: 500 }}>Question Types</label>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           {QUIZ_TYPES.map(type => (
             <label key={type} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <input type="checkbox" checked={selectedTypes.includes(type)} onChange={() => handleTypeChange(type)} /> {type}
+              <input
+                type="checkbox"
+                checked={selectedTypes.includes(type)}
+                onChange={() => handleTypeChange(type)}
+              />{" "}
+              {type}
             </label>
           ))}
         </div>
@@ -159,30 +199,66 @@ const QuizCreator = ({ user }) => {
           <input type="checkbox" checked={useLLM} onChange={e => setUseLLM(e.target.checked)} />
           <span>Generate quiz using Gemini AI</span>
         </label>
+
+        <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <input type="checkbox" checked={shareEnabled} onChange={e => setShareEnabled(e.target.checked)} />
+          <span>Enable shareable link (anyone can attempt)</span>
+        </label>
+
         {useLLM && (
           <div style={{ background: "#eef", padding: 12, borderRadius: 8, margin: "8px 0" }}>
             <strong>Prompt to AI:</strong>
             <div style={{ fontSize: 15, marginTop: 4 }}>
-              Generate a quiz with {numQuestions} questions on the topic: <b>{topic || "[topic]"}</b>. <br />
+              Generate a quiz with {numQuestions} questions on the topic: <b>{topic || "[topic]"}</b>.<br />
               The questions should be a mix of these types: <b>{selectedTypes.join(", ")}</b>.<br />
               Format: [&#123;type, question, options:[], answer&#125;]
             </div>
           </div>
         )}
-        <button type="submit" disabled={loading} style={{
-          background: "#2c3e50",
-          color: "#fff",
-          padding: "14px 0",
-          border: "none",
-          borderRadius: 8,
-          fontSize: 18,
-          fontWeight: 600,
-          cursor: loading ? "not-allowed" : "pointer",
-          marginTop: 10
-        }}>{loading ? "Creating..." : "Create Quiz"}</button>
+
+        {shareEnabled && shareLink && (
+          <div style={{ background: "#eef", padding: 12, borderRadius: 8 }}>
+            <div style={{ fontWeight: 600 }}>Shareable link</div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 6 }}>
+              <input
+                type="text"
+                readOnly
+                value={shareLink}
+                style={{ flex: 1, padding: 8, borderRadius: 6, border: "1px solid #ccc" }}
+              />
+              <button
+                type="button"
+                onClick={() => navigator.clipboard.writeText(shareLink)}
+                style={{ background: "#2c3e50", color: "#fff", border: "none", borderRadius: 6, padding: "8px 12px", cursor: "pointer" }}
+              >
+                Copy
+              </button>
+            </div>
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={loading}
+          style={{
+            background: "#2c3e50",
+            color: "#fff",
+            padding: "14px 0",
+            border: "none",
+            borderRadius: 8,
+            fontSize: 18,
+            fontWeight: 600,
+            cursor: loading ? "not-allowed" : "pointer",
+            marginTop: 10,
+          }}
+        >
+          {loading ? "Creating..." : "Create Quiz"}
+        </button>
       </form>
-      {error && <p style={{ color: '#e74c3c', marginTop: 12 }}>{error}</p>}
-      {success && <p style={{ color: '#27ae60', marginTop: 12 }}>{success}</p>}
+
+      {error && <p style={{ color: "#e74c3c", marginTop: 12 }}>{error}</p>}
+      {success && <p style={{ color: "#27ae60", marginTop: 12 }}>{success}</p>}
+
       {questions.length > 0 && (
         <div style={{ marginTop: 32 }}>
           <h3 style={{ color: "#2c3e50" }}>{editing ? "Edit Quiz Questions" : "Quiz Preview (answers hidden)"}</h3>
@@ -195,12 +271,12 @@ const QuizCreator = ({ user }) => {
                 // Validate MCQ/MSQ answers
                 for (let i = 0; i < questions.length; i++) {
                   const q = questions[i];
-                  if ((q.type === "MCQ" || q.type === "MSQ") && q.options && Array.isArray(q.options)) {
-                    if (q.type === "MCQ" && !q.options.includes(q.answer)) {
+                  if ((q.type?.toUpperCase() === "MCQ" || q.type?.toUpperCase() === "MSQ") && q.options && Array.isArray(q.options)) {
+                    if (q.type?.toUpperCase() === "MCQ" && !q.options.includes(q.answer)) {
                       setError(`Answer for Question ${i + 1} must be one of the options.`);
                       return;
                     }
-                    if (q.type === "MSQ" && (!Array.isArray(q.answer) || q.answer.some(ans => !q.options.includes(ans)))) {
+                    if (q.type?.toUpperCase() === "MSQ" && (!Array.isArray(q.answer) || q.answer.some(ans => !q.options.includes(ans)))) {
                       setError(`All answers for Question ${i + 1} must be among the options.`);
                       return;
                     }
@@ -209,18 +285,24 @@ const QuizCreator = ({ user }) => {
                 setEditing(false);
                 setLoading(true);
                 try {
-                  await addDoc(collection(db, "quizzes"), {
+                  const docRef = await addDoc(collection(db, "quizzes"), {
                     userId: user.uid,
                     topic,
                     types: selectedTypes,
                     questions,
-                    deadline: deadline ? new Date(deadline).toISOString() : null,
+                    deadline: deadline ? new Date(deadline) : null,
                     timed,
-                    timerDuration: timed ? timerDuration : null,
-                    created: new Date()
+                    timerDuration: timed ? Number(timerDuration) : null,
+                    created: serverTimestamp(),
+                    shareEnabled,
                   });
                   setSuccess("Quiz saved successfully!");
+                  if (shareEnabled) {
+                    const link = `${window.location.origin}/#/quiz/${docRef.id}`;
+                    setShareLink(link);
+                  }
                 } catch (err) {
+                  console.error("Failed to save quiz:", err);
                   setError("Failed to save quiz: " + (err.message || err));
                 }
                 setLoading(false);
@@ -261,7 +343,7 @@ const QuizCreator = ({ user }) => {
                     </div>
                   )}
                   <label style={{ fontWeight: 500, marginTop: 8 }}>Answer</label>
-                  {q.type === "MSQ" ? (
+                  {q.type?.toUpperCase() === "MSQ" ? (
                     <input
                       type="text"
                       value={Array.isArray(q.answer) ? q.answer.join(", ") : ""}
@@ -289,7 +371,11 @@ const QuizCreator = ({ user }) => {
                   )}
                 </div>
               ))}
-              <button type="submit" disabled={loading} style={{ background: "#27ae60", color: "#fff", padding: "14px 0", border: "none", borderRadius: 8, fontSize: 18, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", marginTop: 10 }}>
+              <button
+                type="submit"
+                disabled={loading}
+                style={{ background: "#27ae60", color: "#fff", padding: "14px 0", border: "none", borderRadius: 8, fontSize: 18, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", marginTop: 10 }}
+              >
                 {loading ? "Saving..." : "Save Quiz"}
               </button>
             </form>
@@ -301,7 +387,7 @@ const QuizCreator = ({ user }) => {
                     {i + 1}. {q.question}
                     {q.type && <span style={{ marginLeft: 10, color: "#2980b9", fontSize: 13 }}>[{q.type}]</span>}
                   </div>
-                  {q.type === "MCQ" && q.options && Array.isArray(q.options) && (
+                  {(q.type?.toUpperCase() === "MCQ" || q.type?.toLowerCase() === "multiple_choice") && q.options && Array.isArray(q.options) && (
                     <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
                       {q.options.map((opt, idx) => (
                         <label key={idx} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 16, background: "#f4f8fb", borderRadius: 6, padding: "6px 12px" }}>
@@ -311,7 +397,7 @@ const QuizCreator = ({ user }) => {
                       ))}
                     </div>
                   )}
-                  {q.type === "MSQ" && q.options && Array.isArray(q.options) && (
+                  {q.type?.toUpperCase() === "MSQ" && q.options && Array.isArray(q.options) && (
                     <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
                       {q.options.map((opt, idx) => (
                         <label key={idx} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 16, background: "#f4f8fb", borderRadius: 6, padding: "6px 12px" }}>
@@ -321,12 +407,12 @@ const QuizCreator = ({ user }) => {
                       ))}
                     </div>
                   )}
-                  {q.type === "Short Answer" && (
+                  {q.type?.toLowerCase() === "short answer" && (
                     <div style={{ marginTop: 10 }}>
                       <input type="text" disabled placeholder="Your answer..." style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #dbeafe", fontSize: 16, background: "#f4f8fb" }} />
                     </div>
                   )}
-                  {q.type === "Numerical" && (
+                  {q.type?.toLowerCase() === "numerical" && (
                     <div style={{ marginTop: 10 }}>
                       <input type="number" disabled placeholder="Enter number..." style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #dbeafe", fontSize: 16, background: "#f4f8fb" }} />
                     </div>

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import { auth } from "./firebase";
 import { useCreateUserWithEmailAndPassword, useSignInWithEmailAndPassword } from "react-firebase-hooks/auth";
 import { sendPasswordResetEmail, sendEmailVerification } from "firebase/auth";
@@ -110,8 +110,8 @@ const Auth = ({ onAuth }) => {
       background: "#fff",
       fontFamily: "Segoe UI, Arial, sans-serif"
     }}>
-    <h2 style={{textAlign: "center", color: "#2c3e50"}}>{isSignup ? "Sign Up" : "Sign In"}</h2>
-  <form onSubmit={handleSubmit} style={{display: "flex", flexDirection: "column", gap: 16}} aria-label={isSignup ? "Sign Up Form" : "Sign In Form"}>
+      <h2 style={{ textAlign: "center", color: "#2c3e50" }}>{isSignup ? "Sign Up" : "Sign In"}</h2>
+      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }} aria-label={isSignup ? "Sign Up Form" : "Sign In Form"}>
         {!isSignup && (
           <button
             type="button"
@@ -131,7 +131,7 @@ const Auth = ({ onAuth }) => {
             Forgot password?
           </button>
         )}
-        <label htmlFor="email" style={{fontWeight: 500}}>Email</label>
+        <label htmlFor="email" style={{ fontWeight: 500 }}>Email</label>
         <input
           id="email"
           type="email"
@@ -141,13 +141,13 @@ const Auth = ({ onAuth }) => {
           required
           aria-invalid={!!emailError}
           aria-describedby="email-error"
-          style={{padding: 10, borderRadius: 6, border: "1px solid #ccc", fontSize: 16}}
+          style={{ padding: 10, borderRadius: 6, border: "1px solid #ccc", fontSize: 16 }}
         />
-        {emailError && <span id="email-error" style={{color: "#e74c3c", fontSize: 14}}>{emailError}</span>}
+        {emailError && <span id="email-error" style={{ color: "#e74c3c", fontSize: 14 }}>{emailError}</span>}
 
         {/* Custom Captcha as Canvas Image */}
-        <label htmlFor="captcha" style={{fontWeight: 500, marginTop: 8}}>Captcha</label>
-        <div style={{display: "flex", alignItems: "center", gap: 12, marginBottom: 4}}>
+        <label htmlFor="captcha" style={{ fontWeight: 500, marginTop: 8 }}>Captcha</label>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
           <canvas
             ref={el => {
               if (!el) return;
@@ -177,9 +177,9 @@ const Auth = ({ onAuth }) => {
             }}
             width={180}
             height={40}
-            style={{borderRadius: 8, background: '#eef', boxShadow: '0 1px 4px #dbeafe'}}
+            style={{ borderRadius: 8, background: '#eef', boxShadow: '0 1px 4px #dbeafe' }}
           />
-          <button type="button" onClick={() => setCaptcha(generateCaptcha())} style={{background: '#2980b9', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 15}}>Refresh</button>
+          <button type="button" onClick={() => setCaptcha(generateCaptcha())} style={{ background: '#2980b9', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 15 }}>Refresh</button>
         </div>
         <input
           id="captcha"
@@ -190,11 +190,11 @@ const Auth = ({ onAuth }) => {
           required
           maxLength={8}
           autoComplete="off"
-          style={{padding: 10, borderRadius: 6, border: "1px solid #ccc", fontSize: 16, letterSpacing: 2}}
+          style={{ padding: 10, borderRadius: 6, border: "1px solid #ccc", fontSize: 16, letterSpacing: 2 }}
         />
-        {captchaError && <span style={{color: "#e74c3c", fontSize: 14}}>{captchaError}</span>}
+        {captchaError && <span style={{ color: "#e74c3c", fontSize: 14 }}>{captchaError}</span>}
 
-        <label htmlFor="password" style={{fontWeight: 500}}>Password</label>
+        <label htmlFor="password" style={{ fontWeight: 500 }}>Password</label>
         <input
           id="password"
           type="password"
@@ -203,10 +203,10 @@ const Auth = ({ onAuth }) => {
           onChange={e => setPassword(e.target.value)}
           required
           minLength={6}
-          style={{padding: 10, borderRadius: 6, border: "1px solid #ccc", fontSize: 16}}
+          style={{ padding: 10, borderRadius: 6, border: "1px solid #ccc", fontSize: 16 }}
         />
 
-  {/* reCAPTCHA removed */}
+        {/* reCAPTCHA removed */}
         <button
           type="submit"
           disabled={loadingSignup || loadingSignin}
@@ -227,12 +227,12 @@ const Auth = ({ onAuth }) => {
         </button>
       </form>
       {(customError || errorSignup || errorSignin) && (
-        <div role="alert" style={{color: "#e74c3c", marginTop: 12, textAlign: "center"}}>
+        <div role="alert" style={{ color: "#e74c3c", marginTop: 12, textAlign: "center" }}>
           {customError || errorSignup?.message || errorSignin?.message}
         </div>
       )}
       {resetSent && (
-        <div style={{color: "#27ae60", marginTop: 8, textAlign: "center"}}>
+        <div style={{ color: "#27ae60", marginTop: 8, textAlign: "center" }}>
           Password reset email sent! Check your inbox.
         </div>
       )}

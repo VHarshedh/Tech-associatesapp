@@ -1,10 +1,9 @@
 const express = require('express');
 const axios = require('axios');
-const bodyParser = require('body-parser');
 require('dotenv').config();
 
 const app = express();
-app.use(bodyParser.json());
+app.use(express.json());
 
 app.post('/api/verify-captcha', async (req, res) => {
   const token = req.body.token;

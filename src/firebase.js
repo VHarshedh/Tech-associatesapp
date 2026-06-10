@@ -7,9 +7,10 @@
 // The firebaseConfig object is used to configure the app and the app is initialized using the initializeApp function.
 // The analytics object is used to track the app's performance and the auth and db objects are used to authenticate and store data in the database.
 import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
+import { getAnalytics, isSupported as analyticsIsSupported } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
@@ -28,6 +29,22 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+// Initialize Analytics only when supported (avoids runtime errors in some envs)
+analyticsIsSupported().then((supported) => {
+  if (supported && firebaseConfig.measurementId) {
+    try { getAnalytics(app); } catch (e) { /* noop */ }
+  }
+});
+
+// Initialize App Check (required if Firestore has App Check enforcement)
+try {
+  const siteKey = process.env.REACT_APP_RECAPTCHA_V3_SITE_KEY;
+  if (siteKey) {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider(siteKey),
+      isTokenAutoRefreshEnabled: true,
+    });
+  }
+} catch (_) { /* noop */ }
 export const auth = getAuth(app);
 export const db = getFirestore(app);

@@ -6,32 +6,92 @@ import { collection, query, where, onSnapshot } from "firebase/firestore";
 function AttemptHistory({ user }) {
   const [attempts, setAttempts] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (!user?.uid) return;
-    const q = query(
-      collection(db, "attempts"),
-      where("userId", "==", user.uid)
-    );
-    const unsubscribe = onSnapshot(
-      q,
+    
+    setLoading(true);
+    setError(null);
+    console.log("user", user.uid);
+    const ownQuery = query(collection(db, "attempts"), where("userId", "==", user.uid));
+    const ownerQuery = query(collection(db, "publicAttempts"), where("ownerId", "==", user.uid));
+    console.log("ownerQuery", ownerQuery);
+    const mergeAndSet = (ownSnap, ownerSnap) => {
+      try {
+        const own = ownSnap ? ownSnap.docs.map(d => ({ id: d.id, ...d.data() })) : [];
+        const received = ownerSnap ? ownerSnap.docs.map(d => ({ id: d.id, ...d.data() })) : [];
+        const map = new Map();
+        [...own, ...received].forEach(a => map.set(a.id, a));
+        const merged = Array.from(map.values()).sort((a, b) => {
+          const aMs = a.timestamp?.toMillis?.() || (a.timestamp?.seconds ? a.timestamp.seconds * 1000 : 0);
+          const bMs = b.timestamp?.toMillis?.() || (b.timestamp?.seconds ? b.timestamp.seconds * 1000 : 0);
+          return bMs - aMs;
+        });
+        console.log("Fetched attempts:", merged);
+        setAttempts(merged);
+        setLoading(false);
+      } catch (err) {
+        console.error("Error processing attempts:", err);
+        setError("Failed to process attempts");
+        setLoading(false);
+      }
+    };
+
+    let ownSnapCache = null;
+    let ownerSnapCache = null;
+
+    const unsubOwn = onSnapshot(
+      ownQuery,
       (snap) => {
-        const data = snap.docs
-          .map((doc) => ({ id: doc.id, ...doc.data() }))
-          .sort((a, b) => {
-            const aMs = a.timestamp?.toMillis?.() || (a.timestamp?.seconds ? a.timestamp.seconds * 1000 : 0);
-            const bMs = b.timestamp?.toMillis?.() || (b.timestamp?.seconds ? b.timestamp.seconds * 1000 : 0);
-            return bMs - aMs;
-          });
-        console.log("Fetched attempts:", data);
-        setAttempts(data);
+        ownSnapCache = snap;
+        mergeAndSet(ownSnapCache, ownerSnapCache);
       },
       (err) => {
-        console.error("Failed to fetch attempts:", err);
+        console.error("Error fetching own attempts:", err);
+        setError("Failed to fetch your attempts");
+        setLoading(false);
       }
     );
-    return () => unsubscribe();
+    console.log("Successfully fetched own attempts");
+    const unsubOwner = onSnapshot(
+      ownerQuery,
+      (snap) => {
+        ownerSnapCache = snap;
+        mergeAndSet(ownSnapCache, ownerSnapCache);
+      },
+      (err) => {
+        console.error("Error fetching public attempts:", err);
+        setError("Failed to fetch public attempts");
+        setLoading(false);
+      }
+    );
+    console.log("Successfully fetched public attempts");
+    return () => {
+      unsubOwn();
+      unsubOwner();
+    };
   }, [user]);
+
+  if (loading) {
+    return (
+      <div style={{ maxWidth: 600, margin: "40px auto", padding: 24, textAlign: "center" }}>
+        <p>Loading attempts...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ maxWidth: 600, margin: "40px auto", padding: 24, textAlign: "center" }}>
+        <p style={{ color: "#e74c3c" }}>{error}</p>
+        <button onClick={() => window.location.reload()} style={{ marginTop: 16, padding: "8px 16px" }}>
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -91,6 +151,9 @@ function AttemptHistory({ user }) {
                       {attempt.quizTopic || "Untitled Quiz"}
                     </div>
                     <div style={{ fontSize: 13, color: "#666" }}>{dateStr}</div>
+                    <div style={{ fontSize: 13, color: "#666" }}>
+                      Submitted by: {attempt.participantName || (attempt.email ? attempt.email : "You")}
+                    </div>
                   </div>
                   <div
                     style={{
