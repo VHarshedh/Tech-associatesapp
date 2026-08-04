@@ -12,9 +12,10 @@
     }
   ],
   "routes": [
-    { "src": "/api/generate-quiz",  "dest": "/api/generate-quiz.js"  },
-    { "src": "/api/validate-answers", "dest": "/api/validate-answers.js" },
+    { "src": "/api/generate-quiz",   "dest": "/api/generate-quiz.js"   },
+    { "src": "/api/validate-answers","dest": "/api/validate-answers.js" },
     { "src": "/api/verify-captcha",  "dest": "/api/verify-captcha.js"  },
+    { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
