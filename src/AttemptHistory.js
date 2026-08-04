@@ -1,92 +1,79 @@
 // AttemptHistory.js
-import React, { useEffect, useState } from "react";
-import { db } from "./firebase";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import React, { useEffect, useState } from 'react';
+import { db } from './firebase';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import Spinner from './components/Spinner';
+import EmptyState from './components/EmptyState';
 
 function AttemptHistory({ user }) {
   const [attempts, setAttempts] = useState([]);
-  const [selectedId, setSelectedId] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     if (!user?.uid) return;
-    
     setLoading(true);
     setError(null);
-    console.log("user", user.uid);
-    const ownQuery = query(collection(db, "attempts"), where("userId", "==", user.uid));
-    const ownerQuery = query(collection(db, "publicAttempts"), where("ownerId", "==", user.uid));
-    console.log("ownerQuery", ownerQuery);
+
+    const ownQuery = query(collection(db, 'attempts'), where('userId', '==', user.uid));
+    const ownerQuery = query(collection(db, 'publicAttempts'), where('ownerId', '==', user.uid));
+
+    let ownSnapCache = null;
+    let ownerSnapCache = null;
+
     const mergeAndSet = (ownSnap, ownerSnap) => {
       try {
-        const own = ownSnap ? ownSnap.docs.map(d => ({ id: d.id, ...d.data() })) : [];
-        const received = ownerSnap ? ownerSnap.docs.map(d => ({ id: d.id, ...d.data() })) : [];
+        const own = ownSnap ? ownSnap.docs.map((d) => ({ id: d.id, ...d.data() })) : [];
+        const received = ownerSnap ? ownerSnap.docs.map((d) => ({ id: d.id, ...d.data() })) : [];
         const map = new Map();
-        [...own, ...received].forEach(a => map.set(a.id, a));
+        [...own, ...received].forEach((a) => map.set(a.id, a));
         const merged = Array.from(map.values()).sort((a, b) => {
           const aMs = a.timestamp?.toMillis?.() || (a.timestamp?.seconds ? a.timestamp.seconds * 1000 : 0);
           const bMs = b.timestamp?.toMillis?.() || (b.timestamp?.seconds ? b.timestamp.seconds * 1000 : 0);
           return bMs - aMs;
         });
-        console.log("Fetched attempts:", merged);
         setAttempts(merged);
         setLoading(false);
       } catch (err) {
-        console.error("Error processing attempts:", err);
-        setError("Failed to process attempts");
+        console.error('Error processing attempts:', err);
+        setError('Failed to process attempts');
         setLoading(false);
       }
     };
-
-    let ownSnapCache = null;
-    let ownerSnapCache = null;
 
     const unsubOwn = onSnapshot(
       ownQuery,
-      (snap) => {
-        ownSnapCache = snap;
-        mergeAndSet(ownSnapCache, ownerSnapCache);
-      },
-      (err) => {
-        console.error("Error fetching own attempts:", err);
-        setError("Failed to fetch your attempts");
-        setLoading(false);
-      }
+      (snap) => { ownSnapCache = snap; mergeAndSet(ownSnapCache, ownerSnapCache); },
+      (err) => { console.error('Error fetching own attempts:', err); setError('Failed to fetch your attempts'); setLoading(false); }
     );
-    console.log("Successfully fetched own attempts");
     const unsubOwner = onSnapshot(
       ownerQuery,
-      (snap) => {
-        ownerSnapCache = snap;
-        mergeAndSet(ownSnapCache, ownerSnapCache);
-      },
-      (err) => {
-        console.error("Error fetching public attempts:", err);
-        setError("Failed to fetch public attempts");
-        setLoading(false);
-      }
+      (snap) => { ownerSnapCache = snap; mergeAndSet(ownSnapCache, ownerSnapCache); },
+      (err) => { console.error('Error fetching public attempts:', err); setError('Failed to fetch public attempts'); setLoading(false); }
     );
-    console.log("Successfully fetched public attempts");
-    return () => {
-      unsubOwn();
-      unsubOwner();
-    };
+
+    return () => { unsubOwn(); unsubOwner(); };
   }, [user]);
 
-  if (loading) {
-    return (
-      <div style={{ maxWidth: 600, margin: "40px auto", padding: 24, textAlign: "center" }}>
-        <p>Loading attempts...</p>
-      </div>
-    );
-  }
+  if (loading) return <Spinner text="Loading attempts..." />;
 
   if (error) {
     return (
-      <div style={{ maxWidth: 600, margin: "40px auto", padding: 24, textAlign: "center" }}>
-        <p style={{ color: "#e74c3c" }}>{error}</p>
-        <button onClick={() => window.location.reload()} style={{ marginTop: 16, padding: "8px 16px" }}>
+      <div
+        style={{
+          maxWidth: 600,
+          margin: '40px auto',
+          padding: 24,
+          textAlign: 'center',
+          background: '#fff',
+          borderRadius: 12,
+          border: '1px solid #fecaca',
+        }}
+      >
+        <div style={{ fontSize: '36px', marginBottom: '12px' }}>⚠️</div>
+        <p style={{ color: '#dc2626', fontWeight: '600', marginBottom: '16px' }}>{error}</p>
+        <button className="btn btn-secondary" onClick={() => window.location.reload()}>
           Retry
         </button>
       </div>
@@ -96,106 +83,121 @@ function AttemptHistory({ user }) {
   return (
     <div
       style={{
-        maxWidth: 600,
-        margin: "40px auto",
-        padding: 24,
-        borderRadius: 12,
-        background: "#fff",
-        boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
-        fontFamily: "Segoe UI, Arial, sans-serif",
+        marginTop: 32,
+        background: '#fff',
+        borderRadius: 16,
+        boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+        padding: '28px',
+        border: '1px solid #e2e8f0',
+        fontFamily: 'inherit',
       }}
     >
-      <h2 style={{ marginBottom: 20, color: "#2c3e50" }}>Your Quiz Attempts</h2>
+      <h2 style={{ marginBottom: 20, color: '#1e293b', fontSize: '20px', fontWeight: '700' }}>
+        📋 Quiz Attempts
+      </h2>
 
       {attempts.length === 0 ? (
-        <p style={{ color: "#888" }}>No attempts yet.</p>
+        <EmptyState
+          icon="🗂️"
+          title="No attempts yet"
+          subtitle="Complete a quiz to see your history and scores here."
+        />
       ) : (
-        <form style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {attempts.map((attempt) => {
-            // Safely handle timestamp
-            let dateStr = "No timestamp";
-            if (attempt.timestamp?.seconds) {
-              dateStr = new Date(
-                attempt.timestamp.seconds * 1000
-              ).toLocaleString();
-            }
+            const dateStr = attempt.timestamp?.seconds
+              ? new Date(attempt.timestamp.seconds * 1000).toLocaleString()
+              : 'No timestamp';
+            const isExpanded = expandedId === attempt.id;
+            const score = attempt.scorePercent ?? 0;
+            const scoreColor = score >= 70 ? '#166534' : score >= 50 ? '#854d0e' : '#dc2626';
+            const scoreBg = score >= 70 ? '#f0fdf4' : score >= 50 ? '#fefce8' : '#fef2f2';
 
             return (
-              <label
+              <div
                 key={attempt.id}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  border: "1px solid #e0e6ed",
-                  borderRadius: 8,
-                  padding: "12px 16px",
-                  background: selectedId === attempt.id ? "#f9fbfd" : "#fff",
-                  boxShadow:
-                    selectedId === attempt.id
-                      ? "0 2px 8px rgba(0,0,0,0.08)"
-                      : "none",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease",
-                }}
+                className={`attempt-card ${isExpanded ? 'attempt-card--selected' : ''}`}
+                onClick={() => setExpandedId(isExpanded ? null : attempt.id)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === 'Enter' && setExpandedId(isExpanded ? null : attempt.id)}
+                aria-expanded={isExpanded}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <input
-                    type="radio"
-                    name="attempt"
-                    checked={selectedId === attempt.id}
-                    onChange={() => setSelectedId(attempt.id)}
-                    style={{ accentColor: "#2c3e50", cursor: "pointer" }}
-                  />
+                {/* ── Row ── */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, color: "#2c3e50" }}>
-                      {attempt.quizTopic || "Untitled Quiz"}
+                    <div style={{ fontWeight: 600, color: '#1e293b', fontSize: '15px' }}>
+                      {attempt.quizTopic || 'Untitled Quiz'}
                     </div>
-                    <div style={{ fontSize: 13, color: "#666" }}>{dateStr}</div>
-                    <div style={{ fontSize: 13, color: "#666" }}>
-                      Submitted by: {attempt.participantName || (attempt.email ? attempt.email : "You")}
+                    <div style={{ fontSize: 13, color: '#64748b', marginTop: '3px' }}>{dateStr}</div>
+                    <div style={{ fontSize: 13, color: '#64748b' }}>
+                      {attempt.participantName || (attempt.email ? attempt.email : 'You')}
                     </div>
                   </div>
+
                   <div
                     style={{
-                      fontWeight: 600,
-                      color: "#27ae60",
+                      fontWeight: 700,
+                      fontSize: '18px',
+                      color: scoreColor,
+                      background: scoreBg,
+                      padding: '6px 14px',
+                      borderRadius: '20px',
+                      minWidth: '60px',
+                      textAlign: 'center',
                     }}
                   >
-                    {attempt.scorePercent ?? 0}%
+                    {score}%
                   </div>
+
+                  <span style={{ color: '#94a3b8', fontSize: '18px' }}>
+                    {isExpanded ? '▲' : '▼'}
+                  </span>
                 </div>
 
-                {selectedId === attempt.id && (
+                {/* ── Expanded responses ── */}
+                {isExpanded && (
                   <div
+                    className="animate-slide-down"
                     style={{
-                      marginTop: 12,
-                      paddingTop: 12,
-                      borderTop: "1px solid #eee",
-                      fontSize: 15,
-                      color: "#34495e",
+                      marginTop: 14,
+                      paddingTop: 14,
+                      borderTop: '1px solid #e2e8f0',
                     }}
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    <strong>Responses:</strong>
-                    <ul style={{ marginTop: 8, paddingLeft: 20 }}>
+                    <p style={{ margin: '0 0 10px 0', fontWeight: 600, color: '#374151', fontSize: '14px' }}>
+                      Responses:
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {attempt.responses?.map((r, i) => (
-                        <li key={i} style={{ marginBottom: 6 }}>
-                          <span style={{ fontWeight: 500 }}>{r.question}</span>
-                          <br />
-                          <span style={{ color: "#555" }}>
-                            Your Answer:{" "}
-                            {Array.isArray(r.answer)
-                              ? r.answer.join(", ")
-                              : r.answer ?? "—"}
-                          </span>
-                        </li>
+                        <div
+                          key={i}
+                          style={{
+                            background: '#f8fafc',
+                            borderRadius: 8,
+                            padding: '10px 14px',
+                            border: '1px solid #e2e8f0',
+                          }}
+                        >
+                          <div style={{ fontWeight: 500, fontSize: '14px', color: '#1e293b', marginBottom: '4px' }}>
+                            {i + 1}. {r.question}
+                          </div>
+                          <div style={{ fontSize: '13px', color: '#64748b' }}>
+                            Answer:{' '}
+                            <span style={{ color: '#374151', fontWeight: 500 }}>
+                              {Array.isArray(r.answer) ? r.answer.join(', ') : r.answer ?? '—'}
+                            </span>
+                          </div>
+                        </div>
                       ))}
-                    </ul>
+                    </div>
                   </div>
                 )}
-              </label>
+              </div>
             );
           })}
-        </form>
+        </div>
       )}
     </div>
   );

@@ -2,41 +2,29 @@ import React, { useState } from "react";
 import { db } from "./firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
-const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
-
+// Gemini quiz generation is now proxied through the Express backend (/api/generate-quiz)
+// The API key lives only in server.js via process.env.GEMINI_API_KEY
 async function generateQuizWithGemini(numQuestions, topic, types) {
-  const prompt = `Generate a quiz with ${numQuestions} questions on the topic: ${topic}. The questions should be a mix of these types: ${types.join(", ")}. Format: [{type, question, options:[], answer}]`;
-  console.log("Gemini prompt:", prompt);
 
-  const response = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=" + GEMINI_API_KEY,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-    }
-  );
+
+  const response = await fetch("/api/generate-quiz", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ numQuestions, topic, types }),
+  });
+
   const data = await response.json();
-  console.log("Gemini raw response:", data);
 
-  if (data.error) {
-    throw new Error(`Gemini API error: ${data.error.message || JSON.stringify(data.error)}`);
+  if (!response.ok || data.error) {
+    throw new Error(data.error || "Failed to generate quiz from server.");
   }
 
-  try {
-    let text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    console.log("Gemini response text:", text);
-    if (!text) throw new Error("No quiz data returned from Gemini.");
-    // Remove Markdown code fences if present
-    text = text.replace(/```json[\r\n]+|```/g, "").trim();
-    return JSON.parse(text);
-  } catch (err) {
-    console.error("Failed to parse Gemini response:", err);
-    throw new Error("Gemini returned invalid quiz format. Please check your API key and prompt.");
-  }
+
+  return data.quiz;
 }
 
-const QUIZ_TYPES = ["MCQ", "MSQ", "Short Answer", "Numerical"];
+const QUIZ_TYPES = ["MCQ", "MSQ", "Short Answer", "Numerical", "Coding"];
+const CODING_LANGUAGES = ["python", "javascript", "java", "c++", "c", "typescript", "go", "rust", "sql", "other"];
 
 const QuizCreator = ({ user }) => {
   const [numQuestions, setNumQuestions] = useState(5);
@@ -102,12 +90,11 @@ const QuizCreator = ({ user }) => {
         const type = selectedTypes[i % selectedTypes.length];
         if (type === "MCQ" || type === "MSQ") {
           return { type, question: "", options: ["", "", "", ""], answer: type === "MSQ" ? [] : "" };
-        } else if (type === "Short Answer") {
-          return { type, question: "", answer: "" };
-        } else if (type === "Numerical") {
+        } else if (type === "Coding") {
+          return { type, question: "", language: "python", answer: "" };
+        } else {
           return { type, question: "", answer: "" };
         }
-        return { type, question: "", answer: "" };
       });
       setQuestions(quizQuestions);
       setEditing(true);
@@ -342,7 +329,26 @@ const QuizCreator = ({ user }) => {
                       ))}
                     </div>
                   )}
-                  <label style={{ fontWeight: 500, marginTop: 8 }}>Answer</label>
+                  {/* Coding: language selector */}
+                  {q.type === "Coding" && (
+                    <div style={{ marginTop: 8 }}>
+                      <label style={{ fontWeight: 500, display: 'block', marginBottom: 4 }}>Language</label>
+                      <select
+                        value={q.language || 'python'}
+                        onChange={e => {
+                          const updated = [...questions];
+                          updated[i].language = e.target.value;
+                          setQuestions(updated);
+                        }}
+                        style={{ padding: 8, borderRadius: 6, border: "1px solid #ccc", fontSize: 15, width: '100%' }}
+                      >
+                        {CODING_LANGUAGES.map(lang => (
+                          <option key={lang} value={lang}>{lang}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  <label style={{ fontWeight: 500, marginTop: 8 }}>Answer{q.type === "Coding" ? " (Reference / Model Solution)" : q.type === "Short Answer" ? " (Ideal Answer for AI Grading)" : ""}</label>
                   {q.type?.toUpperCase() === "MSQ" ? (
                     <input
                       type="text"
@@ -355,6 +361,36 @@ const QuizCreator = ({ user }) => {
                       placeholder="Comma separated answers"
                       required
                       style={{ padding: 8, borderRadius: 6, border: "1px solid #ccc", fontSize: 16 }}
+                    />
+                  ) : q.type === "Coding" ? (
+                    <textarea
+                      value={q.answer}
+                      onChange={e => {
+                        const updated = [...questions];
+                        updated[i].answer = e.target.value;
+                        setQuestions(updated);
+                      }}
+                      rows={6}
+                      placeholder={`Write the reference ${q.language || 'code'} solution here...`}
+                      required
+                      style={{
+                        padding: 12, borderRadius: 6, border: "1px solid #ccc", fontSize: 14,
+                        fontFamily: 'monospace', background: '#1e293b', color: '#f1f5f9',
+                        width: '100%', resize: 'vertical', boxSizing: 'border-box'
+                      }}
+                    />
+                  ) : q.type === "Short Answer" ? (
+                    <textarea
+                      value={q.answer}
+                      onChange={e => {
+                        const updated = [...questions];
+                        updated[i].answer = e.target.value;
+                        setQuestions(updated);
+                      }}
+                      rows={3}
+                      placeholder="Ideal/expected answer (used for AI grading)..."
+                      required
+                      style={{ padding: 8, borderRadius: 6, border: "1px solid #ccc", fontSize: 15, width: '100%', resize: 'vertical', boxSizing: 'border-box' }}
                     />
                   ) : (
                     <input
@@ -410,11 +446,28 @@ const QuizCreator = ({ user }) => {
                   {q.type?.toLowerCase() === "short answer" && (
                     <div style={{ marginTop: 10 }}>
                       <input type="text" disabled placeholder="Your answer..." style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #dbeafe", fontSize: 16, background: "#f4f8fb" }} />
+                      <div style={{ marginTop: 6, fontSize: 12, color: '#6366f1', fontStyle: 'italic' }}>✨ Graded by Gemini AI</div>
                     </div>
                   )}
                   {q.type?.toLowerCase() === "numerical" && (
                     <div style={{ marginTop: 10 }}>
                       <input type="number" disabled placeholder="Enter number..." style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #dbeafe", fontSize: 16, background: "#f4f8fb" }} />
+                    </div>
+                  )}
+                  {q.type?.toLowerCase() === "coding" && (
+                    <div style={{ marginTop: 10 }}>
+                      {q.language && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                          <span style={{ background: '#1e293b', color: '#94a3b8', fontSize: 12, padding: '3px 10px', borderRadius: 4, fontFamily: 'monospace' }}>{q.language}</span>
+                          <span style={{ fontSize: 12, color: '#6366f1', fontStyle: 'italic' }}>✨ Graded by Gemini AI</span>
+                        </div>
+                      )}
+                      <textarea
+                        disabled
+                        placeholder="Write your code here..."
+                        rows={4}
+                        style={{ width: "100%", padding: "10px", borderRadius: 6, border: "1px solid #334155", fontSize: 14, background: "#1e293b", color: '#94a3b8', fontFamily: 'monospace', boxSizing: 'border-box' }}
+                      />
                     </div>
                   )}
                 </div>
