@@ -1,26 +1,27 @@
 const axios = require('axios');
 
-module.exports = async (req, res) => {
-  let token;
-  if (req.body && typeof req.body === 'string') {
-    try {
-      token = JSON.parse(req.body).token;
-    } catch {
-      token = undefined;
-    }
-  } else {
-    token = req.body?.token;
-  }
+module.exports = async function handler(req, res) {
+  // CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.status(204).end();
+
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  const { token } = req.body || {};
   const secret = process.env.RECAPTCHA_SECRET_KEY;
-  if (!token) {
-    return res.status(400).json({ success: false, error: "Missing token" });
-  }
+
+  if (!token) return res.status(400).json({ success: false, error: 'Missing token' });
+  if (!secret) return res.status(500).json({ success: false, error: 'RECAPTCHA_SECRET_KEY not configured' });
+
   try {
     const response = await axios.post(
       `https://www.google.com/recaptcha/api/siteverify?secret=${secret}&response=${token}`
     );
-    res.json({ success: response.data.success });
+    return res.status(200).json({ success: response.data.success });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    console.error('reCAPTCHA verification error:', error.message);
+    return res.status(500).json({ success: false, error: 'Verification request failed' });
   }
 };
