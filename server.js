@@ -95,8 +95,9 @@ Return ONLY a valid JSON array, no markdown, no explanation:
 [{ "type": "Coding", "question": "Write a function...", "language": "python", "answer": "def foo(): ..." }]`;
 
   try {
+    const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
     const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       { contents: [{ parts: [{ text: prompt }] }] },
       { headers: { 'Content-Type': 'application/json' } }
     );
@@ -117,8 +118,9 @@ Return ONLY a valid JSON array, no markdown, no explanation:
 
     res.json({ quiz });
   } catch (err) {
-    console.error('Gemini quiz generation error:', err.message);
-    res.status(500).json({ error: 'Failed to generate quiz. Check server logs.' });
+    const apiError = err.response?.data?.error?.message || err.message || 'Failed to generate quiz.';
+    console.error('Gemini quiz generation error:', apiError);
+    res.status(500).json({ error: `Failed to generate quiz: ${apiError}` });
   }
 });
 
@@ -184,8 +186,9 @@ Questions to grade:
 ${items}`;
 
   try {
+    const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
     const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       { contents: [{ parts: [{ text: prompt }] }] },
       { headers: { 'Content-Type': 'application/json' } }
     );
@@ -207,8 +210,9 @@ ${items}`;
 
     res.json({ results });
   } catch (err) {
-    console.error('Gemini validation error:', err.message);
-    res.status(500).json({ error: 'Failed to validate answers. Check server logs.' });
+    const apiError = err.response?.data?.error?.message || err.message || 'Failed to validate answers.';
+    console.error('Gemini validation error:', apiError);
+    res.status(500).json({ error: `Failed to validate answers: ${apiError}` });
   }
 });
 

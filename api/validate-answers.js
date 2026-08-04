@@ -53,8 +53,9 @@ Questions to grade:
 ${items}`;
 
   try {
+    const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
     const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       { contents: [{ parts: [{ text: prompt }] }] },
       { headers: { 'Content-Type': 'application/json' } }
     );
@@ -76,7 +77,8 @@ ${items}`;
 
     return res.status(200).json({ results });
   } catch (err) {
-    console.error('Gemini validation error:', err.message);
-    return res.status(500).json({ error: 'Failed to validate answers. Check server logs.' });
+    const apiError = err.response?.data?.error?.message || err.message || 'Failed to validate answers.';
+    console.error('Gemini validation error:', apiError);
+    return res.status(500).json({ error: `Failed to validate answers: ${apiError}` });
   }
 };

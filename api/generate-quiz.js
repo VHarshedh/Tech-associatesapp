@@ -49,8 +49,9 @@ Return ONLY a valid JSON array, no markdown, no explanation:
 [{ "type": "MCQ", "question": "...", "options": ["A","B","C","D"], "answer": "A" }]`;
 
   try {
+    const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
     const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       { contents: [{ parts: [{ text: prompt }] }] },
       { headers: { 'Content-Type': 'application/json' } }
     );
@@ -72,7 +73,8 @@ Return ONLY a valid JSON array, no markdown, no explanation:
 
     return res.status(200).json({ quiz });
   } catch (err) {
-    console.error('Gemini quiz generation error:', err.message);
-    return res.status(500).json({ error: 'Failed to generate quiz. Check server logs.' });
+    const apiError = err.response?.data?.error?.message || err.message || 'Failed to generate quiz.';
+    console.error('Gemini quiz generation error:', apiError);
+    return res.status(500).json({ error: `Failed to generate quiz: ${apiError}` });
   }
 };
